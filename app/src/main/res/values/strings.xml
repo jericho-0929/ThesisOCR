@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">ThesisOCR</string>
     <string name="use_camera">Use Camera</string>
+    <string name="select_image">Select Image</string>
 </resources>

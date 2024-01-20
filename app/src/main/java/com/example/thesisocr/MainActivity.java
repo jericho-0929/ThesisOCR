@@ -16,6 +16,7 @@ import android.widget.Button;
 public class MainActivity extends AppCompatActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 100;
     private static final int IMAGE_CAPTURE_REQUEST = 101;
+    private static final int IMAGE_PICK_REQUEST = 102;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,6 +51,10 @@ public class MainActivity extends AppCompatActivity {
         Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         startActivityForResult(captureIntent, IMAGE_CAPTURE_REQUEST); // TODO: Replace deprecated function.
     }
+    private void openImagePicker() {
+        Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(pickIntent, IMAGE_PICK_REQUEST);
+    }
     @Override
     public void onRequestPermissionsResult(
             int requestCode,
@@ -66,10 +71,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == IMAGE_CAPTURE_REQUEST && resultCode == RESULT_OK) {
-            // Handle the captured image, e.g., save or display it
-            // Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
-            // Handle the captured image as needed
+        if (resultCode == RESULT_OK) {
+            if (requestCode == IMAGE_CAPTURE_REQUEST) {
+                // TODO: Implement function
+                // Handle the captured image, e.g., save or display it
+            } else if (requestCode == IMAGE_PICK_REQUEST) {
+                // TODO: Implement function
+                // Handle the selected image from the file explorer
+                // Example: Uri selectedImageUri = data.getData();
+            }
         }
     }
 }

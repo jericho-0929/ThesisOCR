@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ThesisOCR</string>
+    <string name="use_camera">Use Camera</string>
+</resources>

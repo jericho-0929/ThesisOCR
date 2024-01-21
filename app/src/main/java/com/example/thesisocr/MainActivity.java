@@ -8,21 +8,27 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 
 public class MainActivity extends AppCompatActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 100;
     private static final int IMAGE_CAPTURE_REQUEST = 101;
     private static final int IMAGE_PICK_REQUEST = 102;
+    private ImageView imageView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         Button btnCapture = findViewById(R.id.btnCapture);
+        Button btnSelectImage = findViewById(R.id.btnSelectImage);
+        imageView = findViewById(R.id.imageView);
         btnCapture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -31,6 +37,12 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     requestCameraPermission();
                 }
+            }
+        });
+        btnSelectImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v){
+                openImagePicker();
             }
         });
     }
@@ -53,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     }
     private void openImagePicker() {
         Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(pickIntent, IMAGE_PICK_REQUEST);
+        startActivityForResult(pickIntent, IMAGE_PICK_REQUEST); // TODO: Replace deprecated function.
     }
     @Override
     public void onRequestPermissionsResult(
@@ -75,11 +87,22 @@ public class MainActivity extends AppCompatActivity {
             if (requestCode == IMAGE_CAPTURE_REQUEST) {
                 // TODO: Implement function
                 // Handle the captured image, e.g., save or display it
+                Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
+                displayImage(imageBitmap);
             } else if (requestCode == IMAGE_PICK_REQUEST) {
                 // TODO: Implement function
                 // Handle the selected image from the file explorer
-                // Example: Uri selectedImageUri = data.getData();
+                Uri selectedImageUri = data.getData();
+                displayImageFromUri(selectedImageUri);
             }
         }
+    }
+    private void displayImage(Bitmap bitmap){
+        imageView.setVisibility(View.VISIBLE);
+        imageView.setImageBitmap(bitmap);
+    }
+    private void displayImageFromUri(Uri imageUri) {
+        imageView.setVisibility(View.VISIBLE);
+        imageView.setImageURI(imageUri);
     }
 }

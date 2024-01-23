@@ -1,108 +1,108 @@
-package com.example.thesisocr;
+package com.example.thesisocr
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Bundle
+import android.provider.MediaStore
+import android.view.View
+import android.widget.Button
+import android.widget.ImageView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
-import android.Manifest;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.net.Uri;
-import android.os.Bundle;
-import android.provider.MediaStore;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-
-public class MainActivity extends AppCompatActivity {
-    private static final int CAMERA_PERMISSION_REQUEST = 100;
-    private static final int IMAGE_CAPTURE_REQUEST = 101;
-    private static final int IMAGE_PICK_REQUEST = 102;
-    private ImageView imageView;
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        Button btnCapture = findViewById(R.id.btnCapture);
-        Button btnSelectImage = findViewById(R.id.btnSelectImage);
-        imageView = findViewById(R.id.imageView);
-        btnCapture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (checkCameraPermission()) {
-                    openCamera();
-                } else {
-                    requestCameraPermission();
-                }
+class MainActivity : AppCompatActivity() {
+    private var imageView: ImageView? = null
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        val btnCapture = findViewById<Button>(R.id.btnCapture)
+        val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
+        imageView = findViewById(R.id.imageView)
+        btnCapture.setOnClickListener {
+            if (checkCameraPermission()) {
+                openCamera()
+            } else {
+                requestCameraPermission()
             }
-        });
-        btnSelectImage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v){
-                openImagePicker();
-            }
-        });
+        }
+        btnSelectImage.setOnClickListener { openImagePicker() }
     }
-    private boolean checkCameraPermission() {
+
+    private fun checkCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED;
+            this,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
     }
-    private void requestCameraPermission() {
+
+    private fun requestCameraPermission() {
         ActivityCompat.requestPermissions(
-                this,
-                new String[]{Manifest.permission.CAMERA},
-                CAMERA_PERMISSION_REQUEST
-        );
+            this, arrayOf(Manifest.permission.CAMERA),
+            CAMERA_PERMISSION_REQUEST
+        )
     }
-    private void openCamera() {
-        Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(captureIntent, IMAGE_CAPTURE_REQUEST); // TODO: Replace deprecated function.
+
+    private fun openCamera() {
+        val captureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        startActivityForResult(
+            captureIntent,
+            IMAGE_CAPTURE_REQUEST
+        ) // TODO: Replace deprecated function.
     }
-    private void openImagePicker() {
-        Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(pickIntent, IMAGE_PICK_REQUEST); // TODO: Replace deprecated function.
+
+    private fun openImagePicker() {
+        val pickIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        startActivityForResult(pickIntent, IMAGE_PICK_REQUEST) // TODO: Replace deprecated function.
     }
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            @NonNull String[] permissions,
-            @NonNull int[] grantResults
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION_REQUEST) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                openCamera();
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openCamera()
             }
         }
     }
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             if (requestCode == IMAGE_CAPTURE_REQUEST) {
                 // TODO: Implement function
                 // Handle the captured image, e.g., save or display it
-                Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
-                displayImage(imageBitmap);
+                val imageBitmap = data!!.extras!!["data"] as Bitmap?
+                displayImage(imageBitmap)
             } else if (requestCode == IMAGE_PICK_REQUEST) {
                 // TODO: Implement function
                 // Handle the selected image from the file explorer
-                Uri selectedImageUri = data.getData();
-                displayImageFromUri(selectedImageUri);
+                val selectedImageUri = data!!.data
+                displayImageFromUri(selectedImageUri)
             }
         }
     }
-    private void displayImage(Bitmap bitmap){
-        imageView.setVisibility(View.VISIBLE);
-        imageView.setImageBitmap(bitmap);
+
+    private fun displayImage(bitmap: Bitmap?) {
+        imageView!!.visibility = View.VISIBLE
+        imageView!!.setImageBitmap(bitmap)
     }
-    private void displayImageFromUri(Uri imageUri) {
-        imageView.setVisibility(View.VISIBLE);
-        imageView.setImageURI(imageUri);
+
+    private fun displayImageFromUri(imageUri: Uri?) {
+        imageView!!.visibility = View.VISIBLE
+        imageView!!.setImageURI(imageUri)
+    }
+
+    companion object {
+        private const val CAMERA_PERMISSION_REQUEST = 100
+        private const val IMAGE_CAPTURE_REQUEST = 101
+        private const val IMAGE_PICK_REQUEST = 102
     }
 }

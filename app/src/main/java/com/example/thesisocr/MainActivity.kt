@@ -7,16 +7,26 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import org.opencv.android.OpenCVLoader
 
 class MainActivity : AppCompatActivity() {
     private var imageView: ImageView? = null
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Load OpenCV
+        OpenCVLoader.initLocal()
+        if(OpenCVLoader.initLocal()){
+            Log.e("MyTag","OpenCV Loaded.")
+        } else {
+            Log.e("MyTag","OpenCV Not Loaded.")
+        }
+        // Android Application Stuff
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val btnCapture = findViewById<Button>(R.id.btnCapture)
@@ -29,6 +39,7 @@ class MainActivity : AppCompatActivity() {
                 requestCameraPermission()
             }
         }
+
         btnSelectImage.setOnClickListener { openImagePicker() }
     }
 

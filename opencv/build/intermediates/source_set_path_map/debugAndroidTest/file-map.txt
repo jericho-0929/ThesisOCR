@@ -1,0 +1,5 @@
+org.opencv.test.opencv-androidTest-0 /home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/generated/res/resValues/androidTest/debug
+org.opencv.test.opencv-mergeDebugAndroidTestResources-1 /home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
+org.opencv.test.opencv-mergeDebugAndroidTestResources-2 /home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
+org.opencv.test.opencv-merged_res-3 /home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/merged_res/debugAndroidTest
+org.opencv.test.opencv-packaged_res-4 /home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/packaged_res/debug

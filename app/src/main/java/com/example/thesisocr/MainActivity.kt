@@ -17,6 +17,8 @@ import androidx.core.content.ContextCompat
 import org.opencv.android.OpenCVLoader
 
 class MainActivity : AppCompatActivity() {
+    // TODO: Integrate PreProcessing.
+    // TODO:
     private var imageView: ImageView? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV

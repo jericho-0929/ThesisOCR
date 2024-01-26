@@ -1,5 +1,5 @@
 {
-  "installationFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/prefab_package/release/prefab",
+  "installationFolder": "C:\\Users\\benit\\StudioProjects\\ThesisOCR\\opencv\\build\\intermediates\\prefab_package\\release\\prefab",
   "gradlePath": ":opencv",
   "packageInfo": {
     "packageName": "opencv",
@@ -8,7 +8,7 @@
     "modules": [
       {
         "moduleName": "opencv_jni_shared",
-        "moduleHeaders": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/native/jni/include",
+        "moduleHeaders": "C:\\Users\\benit\\StudioProjects\\ThesisOCR\\opencv\\native\\jni\\include",
         "moduleExportLibraries": [],
         "abis": []
       }

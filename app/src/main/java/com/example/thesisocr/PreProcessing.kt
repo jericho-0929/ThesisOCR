@@ -58,12 +58,12 @@ class PreProcessing {
         return edges
     }
     // Standard Hough Line Transform
-    fun houghTransform(inputMat: Mat) {
+    fun houghTransform(inputMat: Mat): Mat {
         val houghLines = Mat() // Output variable
         val rho = 1.0
         val theta = Math.PI/180
         val threshold = 150
         Imgproc.HoughLines(inputMat, houghLines, rho, theta, threshold)
-
+        return houghLines
     }
 }

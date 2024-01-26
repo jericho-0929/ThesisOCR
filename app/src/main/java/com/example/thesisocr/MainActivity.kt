@@ -18,7 +18,7 @@ import org.opencv.android.OpenCVLoader
 
 class MainActivity : AppCompatActivity() {
     // TODO: Integrate PreProcessing.
-    // TODO:
+    // TODO: Move camera call and file picker functions to separate class.
     private var imageView: ImageView? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
@@ -41,7 +41,6 @@ class MainActivity : AppCompatActivity() {
                 requestCameraPermission()
             }
         }
-
         btnSelectImage.setOnClickListener { openImagePicker() }
     }
 

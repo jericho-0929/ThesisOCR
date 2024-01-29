@@ -1,13 +1,16 @@
 package com.example.thesisocr
 
 import android.graphics.Bitmap
+import android.os.Environment
+import android.util.Log
 import org.opencv.android.Utils
-import org.opencv.core.Core
 import org.opencv.core.Mat
+import org.opencv.core.Point
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
-import java.time.temporal.ValueRange
+
 
 class PreProcessing {
     // DONE: Implement Canny Edge Detection
@@ -22,7 +25,7 @@ class PreProcessing {
 
     companion object {
         init {
-            System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
+            System.loadLibrary("opencv_java4")
         }
     }
     // Canny Edge Detection
@@ -48,22 +51,52 @@ class PreProcessing {
             Imgproc.blur(grayImage, noiseReduced, Size(noiseKernelX, noiseKernelY))
             // Run OpenCV Canny
             Imgproc.Canny(noiseReduced, edges, thresholdOne, thresholdTwo)
+            saveMatAsJpg(edges, Environment.getExternalStorageDirectory().path+"/Pictures/edgeImage.jpg")
             // Release Mat objects
             inputImage.release()
             grayImage.release()
             noiseReduced.release()
+            Log.e("Canny Edge:", "Success!")
+            Log.d("Canny Edge Output: ", "$edges")
         } catch (e: Exception) {
             e.printStackTrace()
+            Log.e("Canny Edge:", "Failure!")
         }
         return edges
     }
     // Standard Hough Line Transform
     fun houghTransform(inputMat: Mat): Mat {
+        Log.d("Hough Transform Input Details:", "$inputMat")
         val houghLines = Mat() // Output variable
         val rho = 1.0
         val theta = Math.PI/180
-        val threshold = 150
-        Imgproc.HoughLines(inputMat, houghLines, rho, theta, threshold)
+        try {
+            Imgproc.HoughLinesP(inputMat, houghLines, rho, theta, 50, 50.0, 10.0)
+            Log.d("Hough Transform:", "$houghLines")
+            for (x in 0..<houghLines.rows()) {
+                val l = houghLines.get(x,0)
+                Imgproc.line(
+                    inputMat, Point(l[0], l[1]), Point(
+                        l[2],
+                        l[3]
+                    ), Scalar(0.0, 0.0, 255.0), 3, Imgproc.LINE_AA, 0
+                )
+            }
+            Log.d("Hough Transform:", "$inputMat")
+            saveMatAsJpg(inputMat,Environment.getExternalStorageDirectory().path+"/Pictures/houghImage.jpg")
+            Log.e("Hough Transform:", "Success!")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.e("Hough Transform:", "Failure!")
+        }
         return houghLines
+    }
+    // TODO: Implement algorithm that takes advantage of the above two to perform image transformation.
+    private fun saveMatAsJpg(mat: Mat, fileName: String) {
+        val outputImage = Mat()
+        Imgproc.cvtColor(mat, outputImage, Imgproc.COLOR_GRAY2BGR)
+        Imgcodecs.imwrite(fileName, outputImage)
+        Log.d("Image Saved:", fileName)
+        outputImage.release()
     }
 }

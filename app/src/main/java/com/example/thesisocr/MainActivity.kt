@@ -15,11 +15,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import org.opencv.android.OpenCVLoader
+import org.opencv.core.Core
 
 class MainActivity : AppCompatActivity() {
     // TODO: Integrate PreProcessing.
     // TODO: Move camera call and file picker functions to separate class.
     private var imageView: ImageView? = null
+    private val preProcessing = PreProcessing()
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
         OpenCVLoader.initLocal()
@@ -98,8 +100,15 @@ class MainActivity : AppCompatActivity() {
                 // Handle the selected image from the file explorer
                 val selectedImageUri = data!!.data
                 displayImageFromUri(selectedImageUri)
+                val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, selectedImageUri)
+                imagePreProcess(bitmap)
             }
         }
+    }
+
+    private fun imagePreProcess(bitmap: Bitmap){
+        val edgeImage = preProcessing.cannyEdge(bitmap)
+        val houghImage = preProcessing.houghTransform(edgeImage)
     }
 
     private fun displayImage(bitmap: Bitmap?) {

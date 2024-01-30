@@ -36,29 +36,31 @@ class PreProcessing {
         // Function Variables
         val inputImage = Mat()
         val grayImage = Mat()
-        val noiseReduced = Mat()
+        val threshImage = Mat()
+        val morphImage = Mat()
         val edges = Mat()
-        // Noise reduction kernel sizes
-        val noiseKernelX = 3.0
-        val noiseKernelY = 3.0
         // Canny parameters
-        val thresholdOne = 50.0
-        val thresholdTwo = 150.0
+        val thresholdOne = 255.0
+        val thresholdTwo = 255.0/3.0
         try {
             // Convert Bitmap input into Mat
             Utils.bitmapToMat(inputBitmap, inputImage)
             // Convert to grayscale
             Imgproc.cvtColor(inputImage, grayImage, Imgproc.COLOR_BGR2GRAY)
-            // Reduce noise
-            // TODO: Test with different methods
-            Imgproc.blur(grayImage, noiseReduced, Size(noiseKernelX, noiseKernelY))
+            // Threshold
+            Imgproc.GaussianBlur(grayImage,grayImage,Size(5.0,5.0),0.0)
+            Imgproc.threshold(grayImage,threshImage, 0.0, 255.0,Imgproc.THRESH_OTSU)
+            // Clean through Morphology
+            // Imgproc.morphologyEx(threshImage, morphImage, Imgproc.MORPH_OPEN, Mat.ones(Size(15.0,1.0), CvType.CV_8U))
+            // Imgproc.morphologyEx(morphImage, morphImage, Imgproc.MORPH_CLOSE, Mat.ones(Size(17.0,3.0), CvType.CV_8U))
             // Run OpenCV Canny
-            Imgproc.Canny(noiseReduced, edges, thresholdOne, thresholdTwo)
+            Imgproc.Canny(threshImage, edges, thresholdOne, thresholdTwo)
             saveMatAsJpg(edges, Environment.getExternalStorageDirectory().path+"/Pictures/edgeImage.jpg")
             // Release Mat objects
             inputImage.release()
             grayImage.release()
-            noiseReduced.release()
+            threshImage.release()
+            morphImage.release()
             Log.e("Canny Edge:", "Success!")
             Log.d("Canny Edge Output: ", "$edges")
         } catch (e: Exception) {
@@ -74,7 +76,7 @@ class PreProcessing {
         val rho = 1.0
         val theta = Math.PI/180
         try {
-            Imgproc.HoughLinesP(inputMat, houghLines, rho, theta, 50, 50.0, 10.0)
+            Imgproc.HoughLinesP(inputMat, houghLines, rho, theta, 165, 5.0, 5.0)
             Log.d("Hough Transform:", "$houghLines")
             for (x in 0..<houghLines.rows()) {
                 val l = houghLines.get(x,0)

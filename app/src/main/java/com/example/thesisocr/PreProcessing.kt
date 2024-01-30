@@ -4,13 +4,16 @@ import android.graphics.Bitmap
 import android.os.Environment
 import android.util.Log
 import org.opencv.android.Utils
+import org.opencv.core.Core
+import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
-
+import kotlin.math.cos
+import kotlin.math.sin
 
 class PreProcessing {
     // DONE: Implement Canny Edge Detection
@@ -92,6 +95,32 @@ class PreProcessing {
         return houghLines
     }
     // TODO: Implement algorithm that takes advantage of the above two to perform image transformation.
+    fun imageTransformation(inputMat: Mat, line1: Pair<Double,Double>, line2: Pair<Double, Double>): Mat? {
+        var lines = listOf(listOf(0.0, 0.0))
+        val (r1, t1) = line1
+        val (r2, t2) = line2
+        val a = Mat(2, 2, CvType.CV_64F)
+        a.put(0, 0, Math.cos(t1))
+        a.put(0, 1, Math.sin(t1))
+        a.put(1, 0, Math.cos(t2))
+        a.put(1, 1, Math.sin(t2))
+        val b = Mat(2, 1, CvType.CV_64F)
+        b.put(0, 0, r1)
+        b.put(1, 0, r2)
+        val x = Mat(2, 1, CvType.CV_64F)
+        Core.solve(a, b, x)
+        val x0 = x.get(0, 0)[0]
+        val y0 = x.get(1, 0)[0]
+        if (Math.abs(t1 - t2) > 1.3) {
+            lines = listOf(listOf(x0, y0))
+            Log.d("Image Transformation", "Lines Intersection Done")
+            Log.d("Image Transformation:", "$lines")
+        } else {
+            Log.e("Image Transformation","Error at Lines Intersection")
+        }
+        // TODO: Implement Points Intersection
+        return null
+    }
     private fun saveMatAsJpg(mat: Mat, fileName: String) {
         val outputImage = Mat()
         Imgproc.cvtColor(mat, outputImage, Imgproc.COLOR_GRAY2BGR)

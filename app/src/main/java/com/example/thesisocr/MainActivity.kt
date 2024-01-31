@@ -91,12 +91,10 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             if (requestCode == IMAGE_CAPTURE_REQUEST) {
-                // TODO: Implement function
                 // Handle the captured image, e.g., save or display it
                 val imageBitmap = data!!.extras!!["data"] as Bitmap?
                 displayImage(imageBitmap)
             } else if (requestCode == IMAGE_PICK_REQUEST) {
-                // TODO: Implement function
                 // Handle the selected image from the file explorer
                 val selectedImageUri = data!!.data
                 displayImageFromUri(selectedImageUri)

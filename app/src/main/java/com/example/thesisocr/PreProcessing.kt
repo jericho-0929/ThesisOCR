@@ -31,6 +31,10 @@ class PreProcessing {
             System.loadLibrary("opencv_java4")
         }
     }
+    fun bitmapToMat(bitmap: Bitmap, mat: Mat): Mat {
+        Utils.bitmapToMat(bitmap, mat)
+        return mat
+    }
     // Canny Edge Detection
     fun cannyEdge(inputBitmap: Bitmap): Mat {
         // Function Variables
@@ -50,9 +54,6 @@ class PreProcessing {
             // Threshold
             Imgproc.GaussianBlur(grayImage,grayImage,Size(5.0,5.0),0.0)
             Imgproc.threshold(grayImage,threshImage, 0.0, 255.0,Imgproc.THRESH_OTSU)
-            // Clean through Morphology
-            // Imgproc.morphologyEx(threshImage, morphImage, Imgproc.MORPH_OPEN, Mat.ones(Size(15.0,1.0), CvType.CV_8U))
-            // Imgproc.morphologyEx(morphImage, morphImage, Imgproc.MORPH_CLOSE, Mat.ones(Size(17.0,3.0), CvType.CV_8U))
             // Run OpenCV Canny
             Imgproc.Canny(threshImage, edges, thresholdOne, thresholdTwo)
             saveMatAsJpg(edges, Environment.getExternalStorageDirectory().path+"/Pictures/edgeImage.jpg")
@@ -98,29 +99,6 @@ class PreProcessing {
     }
     // TODO: Implement algorithm that takes advantage of the above two to perform image transformation.
     fun imageTransformation(inputMat: Mat, line1: Pair<Double,Double>, line2: Pair<Double, Double>): Mat? {
-        var lines = listOf(listOf(0.0, 0.0))
-        val (r1, t1) = line1
-        val (r2, t2) = line2
-        val a = Mat(2, 2, CvType.CV_64F)
-        a.put(0, 0, Math.cos(t1))
-        a.put(0, 1, Math.sin(t1))
-        a.put(1, 0, Math.cos(t2))
-        a.put(1, 1, Math.sin(t2))
-        val b = Mat(2, 1, CvType.CV_64F)
-        b.put(0, 0, r1)
-        b.put(1, 0, r2)
-        val x = Mat(2, 1, CvType.CV_64F)
-        Core.solve(a, b, x)
-        val x0 = x.get(0, 0)[0]
-        val y0 = x.get(1, 0)[0]
-        if (Math.abs(t1 - t2) > 1.3) {
-            lines = listOf(listOf(x0, y0))
-            Log.d("Image Transformation", "Lines Intersection Done")
-            Log.d("Image Transformation:", "$lines")
-        } else {
-            Log.e("Image Transformation","Error at Lines Intersection")
-        }
-        // TODO: Implement Points Intersection
         return null
     }
     private fun saveMatAsJpg(mat: Mat, fileName: String) {

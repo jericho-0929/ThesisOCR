@@ -21,6 +21,7 @@ import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.Mat
+import org.opencv.dnn.Dnn
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 
@@ -47,6 +48,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.e("MyTag","OpenCV Not Loaded.")
         }
+        // ONNX Model Stuff
+        val modelPath = "model.onnx"
+        val net = Dnn.readNetFromONNX(modelPath)
         // Android Application Stuff
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -124,15 +128,17 @@ class MainActivity : AppCompatActivity() {
         Log.d("Image Bitmap", "Image Bitmap to Mat Conversion Successful. ${bitmapAsMat.size()}")
         Log.d("Image Pre-Processing", "Image Pre-Processing Started.")
         val edgeImage = preProcessing.cannyEdge(bitmapAsMat)
-        val houghImage = preProcessing.houghTransform(edgeImage)
-        val intersections = preProcessing.getIntersection(houghImage)
+        val houghImage = preProcessing.houghTransform(edgeImage, bitmapAsMat)
+        val intersections = preProcessing.getIntersection(houghImage, bitmapAsMat)
         val bestQuad = preProcessing.computeQuadrilateralScore(intersections)
         val outputMat = preProcessing.perspectiveTransform(bitmapAsMat, bestQuad)
         Imgcodecs.imwrite(Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg", outputMat)
         Log.d("Image Pre-Processing", "Image Pre-Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
+    private fun neuralNetProcess(bitmap: Bitmap){
 
+    }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageBitmap(bitmap)

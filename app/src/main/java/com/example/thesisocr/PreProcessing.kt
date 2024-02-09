@@ -60,24 +60,25 @@ class PreProcessing {
         return edges
     }
     // Standard Hough Line Transform
-    fun houghTransform(inputMat: Mat): Mat {
+    fun houghTransform(inputMat: Mat, inputImage: Mat): Mat {
         Log.d("Hough Transform Input Details:", "$inputMat")
         val houghLines = Mat() // Output variable
         val rho = 1.0
         val theta = Math.PI/180
         try {
-            Imgproc.HoughLinesP(inputMat, houghLines, rho, theta, 256, 5.0, 5.0)
+            // DO NOT SET THRESHOLD TO BELOW 128
+            Imgproc.HoughLinesP(inputMat, houghLines, rho, theta, 200, 5.0, 1.0)
             Log.d("Hough Lines Rows:", "${houghLines.rows()}")
             for (x in 0..<houghLines.rows()) {
                 val l = houghLines.get(x,0)
                 Imgproc.line(
-                    inputMat, Point(l[0], l[1]), Point(
+                    inputImage, Point(l[0], l[1]), Point(
                         l[2],
                         l[3]
                     ), Scalar(0.0, 0.0, 255.0), 3, Imgproc.LINE_AA, 0
                 )
             }
-            saveMatAsJpg(inputMat,Environment.getExternalStorageDirectory().path+"/Pictures/houghImage.jpg")
+            Imgcodecs.imwrite(Environment.getExternalStorageDirectory().path+"/Pictures/houghImage.jpg", inputImage)
             Log.e("Hough Transform:", "Success!")
         } catch (e: Exception) {
             e.printStackTrace()
@@ -85,8 +86,7 @@ class PreProcessing {
         }
         return houghLines
     }
-    // TODO: Implement a intersection computation function.
-    fun getIntersection(houghLines: Mat): MutableList<Point> {
+    fun getIntersection(houghLines: Mat, inputMat: Mat): MutableList<Point> {
         Log.d("Hough Lines:", "$houghLines")
         val intersections = mutableListOf<Point>()
         for (i in 0 ..<houghLines.rows()) {
@@ -101,18 +101,19 @@ class PreProcessing {
                 val intersection = calculateIntersection(p1, p2, p3, p4)
                 if (intersection != null) {
                     intersections.add(intersection)
+                    Imgproc.circle(inputMat, intersection, 25, Scalar(0.0, 255.0, 0.0), 5)
                     Log.d("Intersection value at $i:", "${intersections[i]}")
                 } else {
                     Log.d("Intersection value at $i:", "No intersection found.")
                 }
             }
-
         }
+        // Render intersection points for debugging
+        Imgcodecs.imwrite(Environment.getExternalStorageDirectory().path+"/Pictures/intersectionImage.jpg", inputMat)
         Log.d("Intersections:","Success!")
         Log.d("Intersections:", "$intersections")
         return intersections
     }
-    // TODO: Implement a quadrilateral score computation function.
     fun computeQuadrilateralScore(intersections: MutableList<Point>): Mat{
         Log.d("Quadrilateral Score Input:", "$intersections")
         var maxScore = 0.0

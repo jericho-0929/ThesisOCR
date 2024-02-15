@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     private var imageView: ImageView? = null
     private val preProcessing = PreProcessing()
     private val textRecognition = PaddleRecognition()
-    private val textDetection = PaddlePredictor()
+    private val textDetection = PaddleDetector()
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         displayImageFromUri(uri)
         if (uri != null){

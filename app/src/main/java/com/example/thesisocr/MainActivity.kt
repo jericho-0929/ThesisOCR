@@ -81,12 +81,14 @@ class MainActivity : AppCompatActivity() {
         var selectedModelByteArray = selectModel(1)
         ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         var result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
-        // displayImage(result.outputBitmap)
-        // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
-        // Run recognition model.
-        selectedModelByteArray = selectModel(2)
-        ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-        //result = textRecognition.recognize(rescaledBitmap, ortEnv, ortSession)
+        if (result != null) {
+            displayImage(result.outputBitmap)
+            saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+            selectedModelByteArray = selectModel(2)
+            ortSession.close()
+            ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
+            result = textRecognition.recognize(result.outputBitmap, ortEnv, ortSession)
+        }
         Log.d("Text Recognition", result.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")

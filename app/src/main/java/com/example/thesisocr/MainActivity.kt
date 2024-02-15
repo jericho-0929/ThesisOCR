@@ -1,9 +1,9 @@
 package com.example.thesisocr
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -15,27 +15,34 @@ import android.widget.ImageView
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import org.opencv.android.OpenCVLoader
-import org.opencv.android.Utils
-import org.opencv.core.Core
-import org.opencv.core.Mat
-import org.opencv.dnn.Dnn
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import com.example.thesisocr.databinding.ActivityMainBinding
 import org.opencv.imgcodecs.Imgcodecs
-import org.opencv.imgproc.Imgproc
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
+    // ONNX Variables
+    private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
+    private lateinit var ortSession: OrtSession
     // TODO: Integrate PreProcessing.
     // TODO: Move camera call and file picker functions to separate class.
+    private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
+    private val modelPackagePath = R.raw.det_model
     private val preProcessing = PreProcessing()
+    private val textDetection = PaddlePredictor()
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         displayImageFromUri(uri)
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
-            imagePreProcess(bitmap)
             Log.d("Photo Picker", "Photo selected: $uri")
+            debugGetModelInfo(1)
+            debugGetModelInfo(2)
+            // imagePreProcess(bitmap)
+            neuralNetProcess(bitmap)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -49,109 +56,72 @@ class MainActivity : AppCompatActivity() {
             Log.e("MyTag","OpenCV Not Loaded.")
         }
         // ONNX Model Stuff
-        val modelPath = "model.onnx"
-        val net = Dnn.readNetFromONNX(modelPath)
+        // Text Detection Model
         // Android Application Stuff
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val btnCapture = findViewById<Button>(R.id.btnCapture)
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         imageView = findViewById(R.id.imageView)
-        btnCapture.setOnClickListener {
-            if (checkCameraPermission()) {
-                openCamera()
-            } else {
-                requestCameraPermission()
-            }
-        }
         btnSelectImage.setOnClickListener {
             pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
     }
-
-    private fun checkCameraPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestCameraPermission() {
-        ActivityCompat.requestPermissions(
-            this, arrayOf(Manifest.permission.CAMERA),
-            CAMERA_PERMISSION_REQUEST
-        )
-    }
-    private fun openCamera() {
-        val captureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        startActivityForResult(
-            captureIntent,
-            IMAGE_CAPTURE_REQUEST
-        ) // TODO: Replace deprecated function.
-    }
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_PERMISSION_REQUEST) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                openCamera()
-            }
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK) {
-            if (requestCode == IMAGE_CAPTURE_REQUEST) {
-                // Handle the captured image, e.g., save or display it
-                val imageBitmap = data!!.extras!!["data"] as Bitmap?
-                displayImage(imageBitmap)
-            } else if (requestCode == IMAGE_PICK_REQUEST) {
-                // Handle the selected image from the file explorer
-                val selectedImageUri = data!!.data
-                displayImageFromUri(selectedImageUri)
-                val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, selectedImageUri)
-                imagePreProcess(bitmap)
-            }
-        }
-    }
-
     private fun imagePreProcess(bitmap: Bitmap){
-        val bitmapAsMat = Mat()
-        Utils.bitmapToMat(bitmap, bitmapAsMat)
-        Imgproc.cvtColor(bitmapAsMat, bitmapAsMat, Imgproc.COLOR_BGRA2BGR)
-        Log.d("Image Bitmap Output","$bitmapAsMat")
-        Log.d("Image Bitmap", "Image Bitmap to Mat Conversion Successful. ${bitmapAsMat.size()}")
         Log.d("Image Pre-Processing", "Image Pre-Processing Started.")
-        val edgeImage = preProcessing.cannyEdge(bitmapAsMat)
-        val houghImage = preProcessing.houghTransform(edgeImage, bitmapAsMat)
-        val intersections = preProcessing.getIntersection(houghImage, bitmapAsMat)
-        val bestQuad = preProcessing.computeQuadrilateralScore(intersections)
-        val outputMat = preProcessing.perspectiveTransform(bitmapAsMat, bestQuad)
-        Imgcodecs.imwrite(Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg", outputMat)
+        val preProcessedBitmap = preProcessing.imagePreProcess(bitmap)
         Log.d("Image Pre-Processing", "Image Pre-Processing Completed.")
+        displayImage(preProcessedBitmap)
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun neuralNetProcess(bitmap: Bitmap){
-
+        val rescaledBitmap = bitmap
+        Log.d("Neural Network Processing", "Neural Network Processing Started.")
+        // Run detection model.
+        var selectedModelByteArray = selectModel(1)
+        ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
+        val result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        displayImage(result.outputBitmap)
+        saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+        // Run recognition model.
+        // selectedModelByteArray = selectModel(2)
+        // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
+        Log.d("Neural Network Processing", "Neural Network Processing Completed.")
+        Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageBitmap(bitmap)
     }
-
     private fun displayImageFromUri(imageUri: Uri?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageURI(imageUri)
     }
-
-    companion object {
-        private const val CAMERA_PERMISSION_REQUEST = 100
-        private const val IMAGE_CAPTURE_REQUEST = 101
-        private const val IMAGE_PICK_REQUEST = 102
+    private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
+    }
+    private fun selectModel(modelNum: Int): ByteArray{
+        val modelPackagePath = when (modelNum) {
+            1 -> R.raw.det_model
+            2 -> R.raw.rec_model
+            else -> R.raw.det_model
+        }
+        return resources.openRawResource(modelPackagePath).readBytes()
+    }
+    private fun gatherModelOutputInputInfo(modelToLoad: ByteArray){
+        ortSession = ortEnv.createSession(modelToLoad, OrtSession.SessionOptions())
+        val inputInfo = ortSession.inputInfo
+        val outputInfo = ortSession.outputInfo
+        Log.d("Model Info", "Input Info: $inputInfo")
+        Log.d("Model Info", "Output Info: $outputInfo")
+    }
+    private fun debugGetModelInfo(modelSelect: Int){
+        val selectedModelByteArray = selectModel(modelSelect)
+        gatherModelOutputInputInfo(selectedModelByteArray)
+    }
+    private fun saveImage(bitmap: Bitmap, filename: String){
+        val fileOutputStream = FileOutputStream(filename)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
+        fileOutputStream.close()
     }
 }

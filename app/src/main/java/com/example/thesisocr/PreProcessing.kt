@@ -32,6 +32,20 @@ class PreProcessing {
             System.loadLibrary("opencv_java4")
         }
     }
+    fun imagePreProcess(bitmap: Bitmap): Bitmap {
+        val inputMat = Mat()
+        Utils.bitmapToMat(bitmap, inputMat)
+        Log.d("Input Mat:", "$inputMat")
+        val edgeImage = cannyEdge(inputMat)
+        val houghLines = houghTransform(edgeImage, inputMat)
+        val intersections = getIntersection(houghLines, inputMat)
+        val bestQuad = computeQuadrilateralScore(intersections)
+        val outputMat = perspectiveTransform(inputMat, bestQuad)
+        val outputBitmap = Bitmap.createBitmap(outputMat.width(), outputMat.height(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(outputMat, outputBitmap)
+        Log.d("Output Bitmap:", "$outputBitmap")
+        return outputBitmap
+    }
     // Canny Edge Detection
     fun cannyEdge(inputImage: Mat): Mat {
         // Function Variables

@@ -2,17 +2,17 @@ package org.opencv.android;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.os.Environment;
 
+import org.jetbrains.annotations.NotNull;
 import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgcodecs.Imgcodecs;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 public class Utils {
 
@@ -131,9 +131,52 @@ public class Utils {
     public static void matToBitmap(Mat mat, Bitmap bmp) {
         matToBitmap(mat, bmp, false);
     }
-
-
-    private static native void nBitmapToMat2(Bitmap b, long m_addr, boolean unPremultiplyAlpha);
-
-    private static native void nMatToBitmap2(long m_addr, Bitmap b, boolean premultiplyAlpha);
+    public static void copyDirectoryFromAssets(@NotNull Context appCtx, @NotNull String srcDir, @NotNull String dstDir) {
+        if (srcDir.isEmpty() || dstDir.isEmpty()) {
+            return;
+        }
+        try {
+            if (!new File(dstDir).exists()) {
+                new File(dstDir).mkdirs();
+            }
+            for (String fileName : appCtx.getAssets().list(srcDir)) {
+                String srcSubPath = srcDir + File.separator + fileName;
+                String dstSubPath = dstDir + File.separator + fileName;
+                if (new File(srcSubPath).isDirectory()) {
+                    copyDirectoryFromAssets(appCtx, srcSubPath, dstSubPath);
+                } else {
+                    copyFileFromAssets(appCtx, srcSubPath, dstSubPath);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    public static void copyFileFromAssets(Context appCtx, String srcPath, String dstPath) {
+        if (srcPath.isEmpty() || dstPath.isEmpty()) {
+            return;
+        }
+        InputStream is = null;
+        OutputStream os = null;
+        try {
+            is = new BufferedInputStream(appCtx.getAssets().open(srcPath));
+            os = new BufferedOutputStream(new FileOutputStream(new File(dstPath)));
+            byte[] buffer = new byte[1024];
+            int length = 0;
+            while ((length = is.read(buffer)) != -1) {
+                os.write(buffer, 0, length);
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                os.close();
+                is.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

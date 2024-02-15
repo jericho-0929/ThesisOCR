@@ -40,7 +40,8 @@ class TextHandler {
     // Private variables
     private var entriesMap = mutableMapOf<String, MutableList<entryDetails>>()
     private val excludedStrings = listOf("Apelyido", "Mga Pangalan", "Gitnang Apelyido", "Petsa ng Kapanganakan", "Tirahan",
-        "Address", "First Name", "Last Name", "Middle Name", "Date of Birth", "Name", "Surname", "Given Names",)
+        "Address", "First Name", "Last Name", "Middle Name", "Date of Birth", "Name", "Surname", "Given Names",
+        "")
     // Public functions
     fun getFromEntriesMap(key: String): MutableList<entryDetails>? {
         return entriesMap[key]

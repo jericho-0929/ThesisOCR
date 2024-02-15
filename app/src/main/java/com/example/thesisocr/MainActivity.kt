@@ -31,8 +31,8 @@ class MainActivity : AppCompatActivity() {
     // TODO: Move camera call and file picker functions to separate class.
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
-    private val modelPackagePath = R.raw.det_model
     private val preProcessing = PreProcessing()
+    private val textRecognition = PaddleRecognition()
     private val textDetection = PaddlePredictor()
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         displayImageFromUri(uri)
@@ -75,16 +75,19 @@ class MainActivity : AppCompatActivity() {
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun neuralNetProcess(bitmap: Bitmap){
-        val rescaledBitmap = bitmap
+        val rescaledBitmap = rescaleBitmap(bitmap, 640, 480)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
         var selectedModelByteArray = selectModel(1)
         ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-        val result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
-        displayImage(result.outputBitmap)
-        saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+        var result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        // displayImage(result.outputBitmap)
+        // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
         // Run recognition model.
-        // selectedModelByteArray = selectModel(2)
+        selectedModelByteArray = selectModel(2)
+        ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
+        //result = textRecognition.recognize(rescaledBitmap, ortEnv, ortSession)
+        Log.d("Text Recognition", result.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")

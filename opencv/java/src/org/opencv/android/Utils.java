@@ -131,6 +131,12 @@ public class Utils {
     public static void matToBitmap(Mat mat, Bitmap bmp) {
         matToBitmap(mat, bmp, false);
     }
+
+
+    private static native void nBitmapToMat2(Bitmap b, long m_addr, boolean unPremultiplyAlpha);
+
+    private static native void nMatToBitmap2(long m_addr, Bitmap b, boolean premultiplyAlpha);
+
     public static void copyDirectoryFromAssets(@NotNull Context appCtx, @NotNull String srcDir, @NotNull String dstDir) {
         if (srcDir.isEmpty() || dstDir.isEmpty()) {
             return;

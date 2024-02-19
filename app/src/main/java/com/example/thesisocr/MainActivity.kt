@@ -3,7 +3,6 @@ package com.example.thesisocr
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -15,12 +14,8 @@ import android.widget.ImageView
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import org.opencv.android.OpenCVLoader
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
 import com.example.thesisocr.databinding.ActivityMainBinding
-import org.opencv.imgcodecs.Imgcodecs
+import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
@@ -75,20 +70,23 @@ class MainActivity : AppCompatActivity() {
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun neuralNetProcess(bitmap: Bitmap){
-        val rescaledBitmap = rescaleBitmap(bitmap, 640, 480)
+        var rescaledBitmap = rescaleBitmap(bitmap, 640, 480)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
         var selectedModelByteArray = selectModel(1)
         ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         var result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        /*
         if (result != null) {
             displayImage(result.outputBitmap)
             saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             selectedModelByteArray = selectModel(2)
             ortSession.close()
             ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-            result = textRecognition.recognize(result.outputBitmap, ortEnv, ortSession)
+            result = textRecognition.recognize(rescaledBitmap, ortEnv, ortSession)
         }
+
+         */
         Log.d("Text Recognition", result.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")

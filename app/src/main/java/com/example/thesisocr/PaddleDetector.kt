@@ -4,7 +4,13 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.Rect
+import android.os.Environment
 import android.util.Log
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
@@ -20,7 +26,7 @@ import java.util.Collections
 internal data class Result(
     var outputBitmap: Bitmap
 )
-
+data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
  */
@@ -30,8 +36,9 @@ internal data class Result(
  * Shapes are formatted as: (Batch Size, Channels, Width, Height)
  * Input consists of a Tensor of shape (Batch Size, 3, inputWidth, inputHeight).
  * Output consists of a Tensor of shape (Batch Size, 1, outputWidth, outputHeight).
- * Accordingly, this model outputs an image where any detected text boxes are highlighted.
- * Rest of the image is
+ *
+ * Accordingly, this model outputs a feature map and an algorithm to create bounding boxes
+ * based on the feature map should be created.
  */
 internal class PaddleDetector {
     fun detect(bitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
@@ -48,27 +55,149 @@ internal class PaddleDetector {
     private fun runModel(onnxTensor: OnnxTensor, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
+        // Run the model.
         val output = ortSession.run(
             Collections.singletonMap("x", onnxTensor)
         )
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")
         output.use {
+            // Feature map from the model's output.
             val rawOutput = output?.get(0)?.value as Array<Array<Array<FloatArray>>>
             // Convert rawOutput to a Bitmap
             var outputImageBitmap = Bitmap.createBitmap(bitmapWidth,bitmapHeight, Bitmap.Config.ARGB_8888)
-            val multiplier = -255.0f * 2
+            // Convert Array to Bitmap
+            val multiplier = -255.0f * 2.0f
             for (i in 0 until bitmapWidth) {
                 for (j in 0 until bitmapHeight) {
                     val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
                     outputImageBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
                 }
             }
+            // Create bounding boxes from rawOutput
+            val boundingBoxes = createBoundingBoxes(rawOutput, inputBitmap)
+            Log.d("PaddleDetector", "Bounding boxes created.")
+            val monochromeBitmap = convertToMonochrome(outputImageBitmap)
+            outputImageBitmap = monochromeBitmap
+            debugSaveImage(monochromeBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/monochrome.jpg")
             // Log.d("PaddleDetector", "Pixel at 0,0: ${outputImageBitmap.getPixel(0,0).red}")
             // debugSaveImage(outputImageBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             Log.d("PaddleDetector", "Model output handled.\nPaddleDetector completed.")
+            debugSaveImage(outputImageBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/detectionOutput.jpg")
             outputImageBitmap = maskInputWithOutput(inputBitmap, outputImageBitmap)
+            val boundingBoxesImage = renderBoundingBoxes(inputBitmap, boundingBoxes)
+            debugSaveImage(boundingBoxesImage, Environment.getExternalStorageDirectory().toString() + "/Pictures/boundingBoxes.jpg")
             return Result(outputImageBitmap)
         }
+    }
+    private fun createBoundingBoxes(rawOutput: Array<Array<Array<FloatArray>>>, inputBitmap: Bitmap): List<BoundingBox> {
+        // Create bounding boxes from the raw output of the model.
+        val boundingBoxes = mutableListOf<BoundingBox>()
+        // Get the dimensions of the input bitmap.
+        val width = inputBitmap.width
+        val height = inputBitmap.height
+        // Create a 2D array to keep track of visited pixels.
+        val visitedPixels = Array(width) { BooleanArray(height) }
+        val threshold = 1E-6
+        // Iterate through the raw output and create bounding boxes for pixels with intensity above a threshold.
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                if (!visitedPixels[i][j] && rawOutput[0][0][i][j] > threshold) {
+                    // Initialize bounding box coordinates
+                    var minX = i
+                    var minY = j
+                    var maxX = i
+                    var maxY = j
+
+                    // Depth-first search to find contiguous white pixels
+                    val stack = mutableListOf<Pair<Int, Int>>()
+                    stack.add(Pair(i, j))
+                    visitedPixels[i][j] = true
+
+                    while (stack.isNotEmpty()) {
+                        val (x, y) = stack.removeAt(stack.size - 1)
+
+                        // Update bounding box coordinates
+                        minX = minOf(minX, x)
+                        minY = minOf(minY, y)
+                        maxX = maxOf(maxX, x)
+                        maxY = maxOf(maxY, y)
+
+                        // Check neighboring pixels
+                        for ((dx, dy) in listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)) {
+                            val newX = x + dx
+                            val newY = y + dy
+                            if (newX in 0 until width && newY in 0 until height &&
+                                !visitedPixels[newX][newY] && rawOutput[0][0][newX][newY] > threshold
+                            ) {
+                                stack.add(Pair(newX, newY))
+                                visitedPixels[newX][newY] = true
+                            }
+                        }
+                    }
+
+                    // Create bounding box for the contiguous white region
+                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20))
+                }
+            }
+        }
+        /*
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val pixelIntensity = rawOutput[0][0][i][j]
+                if (pixelIntensity > threshold) {
+                    // Log.d("PaddleDetector", "Pixel intensity: $pixelIntensity")
+                    // Calculate width for bounding box by counting contiguous pixels matching the threshold.
+                    var widthCounter = 0
+                    for (k in i until width) {
+                        // If the pixel has not been visited and the intensity is above the threshold, increment the width counter.
+                        if (!visitedPixels[k][j] && rawOutput[0][0][k][j] > threshold) {
+                            visitedPixels[k][j] = true // Mark the pixel as visited
+                            widthCounter++
+                        } else {
+                            break
+                        }
+                    }
+                    // Offset the bounding box to the left by 5 pixels before adding the box.
+                    val offset = 5
+                    val x = i - offset
+                    // Offset the bounding box to the top by 5 pixels before adding the box.
+                    val y = j - offset
+                    boundingBoxes.add(BoundingBox(x, y, widthCounter, 48))
+                }
+            }
+        }
+         */
+        // Iterate through boxes and remove succeeding boxes that overlap with the current box.
+        /*
+        for (i in 0 until boundingBoxes.size) {
+            if (i >= boundingBoxes.size) break
+            val currentBox = boundingBoxes[i]
+            for (j in i + 1 until boundingBoxes.size) {
+                if (j >= boundingBoxes.size) break
+                val nextBox = boundingBoxes[j]
+                if (currentBox.x < nextBox.x + nextBox.width && currentBox.x + currentBox.width > nextBox.x) {
+                    boundingBoxes.removeAt(j)
+                }
+            }
+        }
+         */
+        // Remove bounding boxes with abysmally small widths
+        val minBoxWidth = 40
+        boundingBoxes.removeIf { it.width < minBoxWidth }
+        return boundingBoxes.distinct()
+    }
+    private fun renderBoundingBoxes(inputBitmap: Bitmap, boundingBoxes: List<BoundingBox>): Bitmap {
+        val outputBitmap = inputBitmap
+        val canvas = Canvas(outputBitmap)
+        val paint = Paint()
+        paint.color = Color.RED
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 2.0f
+        for (box in boundingBoxes) {
+            val rect = Rect(box.x, box.y, box.x + box.width, box.y + box.height)
+            canvas.drawRect(rect, paint)
+        }
+        return outputBitmap
     }
     private fun convertImageToFloatArray(bitmap: Bitmap): Array<Array<Array<FloatArray>>> {
         val width = bitmap.width
@@ -84,19 +213,31 @@ internal class PaddleDetector {
         }
         return floatArray
     }
+    private fun convertToMonochrome(bitmap: Bitmap): Bitmap {
+        val result = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+        val saturationMatrix = ColorMatrix()
+        saturationMatrix.setSaturation(0f)
+        val paint = Paint().apply {
+            colorFilter = ColorMatrixColorFilter(saturationMatrix)
+        }
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        return result
+    }
     private fun maskInputWithOutput(inputBitmap: Bitmap, outputBitmap: Bitmap): Bitmap {
         val width = inputBitmap.width
         val height = inputBitmap.height
         Log.d("PaddleDetector", "Masking input with output.")
         // Dilate the outputBitmap to increase the size of the detected text boxes
-        val dilatedBitmap = imageDilation(outputBitmap)
+        val dilatedBitmap = outputBitmap
         val maskedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        // Keep only input pixels within the yellow boxes found in the outputBitmap
+        // Keep only input pixels that overlap the non-black pixels of dilatedBitmap
         for (i in 0 until width) {
             for (j in 0 until height) {
+                val inputPixel = inputBitmap.getPixel(i, j)
                 val outputPixel = dilatedBitmap.getPixel(i, j)
-                if (outputPixel.red >= 200 && outputPixel.green >= 200 && outputPixel.blue <= 100){
-                    maskedBitmap.setPixel(i, j, inputBitmap.getPixel(i, j))
+                if (outputPixel != Color.BLACK) {
+                    maskedBitmap.setPixel(i, j, inputPixel)
                 } else {
                     maskedBitmap.setPixel(i, j, Color.BLACK)
                 }
@@ -105,6 +246,29 @@ internal class PaddleDetector {
         Log.d("PaddleDetector", "Masking completed.")
         return maskedBitmap
     }
+    private fun enlargeNonBlackBoxes(bitmap: Bitmap, scaleFactor: Float): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        // Create a new bitmap with the same dimensions as the original
+        val enlargedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(enlargedBitmap)
+        val paint = Paint()
+
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                val pixel = bitmap.getPixel(x, y)
+                if (pixel != Color.BLACK) {
+                    // Enlarge non-black pixels
+                    val newX = (x * scaleFactor).toInt()
+                    val newY = (y * scaleFactor).toInt()
+                    canvas.drawPoint(newX.toFloat(), newY.toFloat(), paint)
+                }
+            }
+        }
+
+        return enlargedBitmap
+    }
     private fun imageDilation(inputBitmap: Bitmap): Bitmap {
         val width = inputBitmap.width
         val height = inputBitmap.height
@@ -112,7 +276,7 @@ internal class PaddleDetector {
         val dilatedMat = Mat()
         // Convert inputBitmap to grayscale
         Utils.bitmapToMat(inputBitmap, inputMat)
-        Imgproc.dilate(inputMat, dilatedMat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(10.0, 10.0)))
+        Imgproc.dilate(inputMat, dilatedMat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(20.0, 20.0)))
         // Convert dilatedMat to Bitmap
         val dilatedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(dilatedMat, dilatedBitmap)
@@ -123,19 +287,5 @@ internal class PaddleDetector {
         val fileOutputStream = FileOutputStream(filename)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
-    }
-    private fun saveFloatBufferAsImage(floatBuffer: FloatBuffer, width: Int, height: Int, filename: String){
-        val outputImageBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        var index = 0
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                val red = (floatBuffer[index] * 255).toInt()
-                val green = (floatBuffer[index + 1] * 255).toInt()
-                val blue = (floatBuffer[index + 2] * 255).toInt()
-                index += 3
-                outputImageBitmap.setPixel(i, j, Color.rgb(red, blue, green))
-            }
-        }
-        debugSaveImage(outputImageBitmap, filename)
     }
 }

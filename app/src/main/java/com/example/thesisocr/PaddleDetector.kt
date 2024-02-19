@@ -23,10 +23,6 @@ import java.io.FileOutputStream
 import java.nio.FloatBuffer
 import java.util.Collections
 
-internal data class Result(
-    var outputBitmap: Bitmap
-)
-data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
  */
@@ -40,7 +36,12 @@ data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
  * Accordingly, this model outputs a feature map and an algorithm to create bounding boxes
  * based on the feature map should be created.
  */
-internal class PaddleDetector {
+class PaddleDetector {
+    data class Result(
+        var outputBitmap: Bitmap,
+        var boundingBoxList: List<BoundingBox>
+    )
+    data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
     fun detect(bitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
         val imageArray = convertImageToFloatArray(bitmap)
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
@@ -86,7 +87,7 @@ internal class PaddleDetector {
             outputImageBitmap = maskInputWithOutput(inputBitmap, outputImageBitmap)
             val boundingBoxesImage = renderBoundingBoxes(inputBitmap, boundingBoxes)
             debugSaveImage(boundingBoxesImage, Environment.getExternalStorageDirectory().toString() + "/Pictures/boundingBoxes.jpg")
-            return Result(outputImageBitmap)
+            return Result(outputImageBitmap, boundingBoxes)
         }
     }
     private fun createBoundingBoxes(rawOutput: Array<Array<Array<FloatArray>>>, inputBitmap: Bitmap): List<BoundingBox> {
@@ -140,50 +141,10 @@ internal class PaddleDetector {
                 }
             }
         }
-        /*
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                val pixelIntensity = rawOutput[0][0][i][j]
-                if (pixelIntensity > threshold) {
-                    // Log.d("PaddleDetector", "Pixel intensity: $pixelIntensity")
-                    // Calculate width for bounding box by counting contiguous pixels matching the threshold.
-                    var widthCounter = 0
-                    for (k in i until width) {
-                        // If the pixel has not been visited and the intensity is above the threshold, increment the width counter.
-                        if (!visitedPixels[k][j] && rawOutput[0][0][k][j] > threshold) {
-                            visitedPixels[k][j] = true // Mark the pixel as visited
-                            widthCounter++
-                        } else {
-                            break
-                        }
-                    }
-                    // Offset the bounding box to the left by 5 pixels before adding the box.
-                    val offset = 5
-                    val x = i - offset
-                    // Offset the bounding box to the top by 5 pixels before adding the box.
-                    val y = j - offset
-                    boundingBoxes.add(BoundingBox(x, y, widthCounter, 48))
-                }
-            }
-        }
-         */
-        // Iterate through boxes and remove succeeding boxes that overlap with the current box.
-        /*
-        for (i in 0 until boundingBoxes.size) {
-            if (i >= boundingBoxes.size) break
-            val currentBox = boundingBoxes[i]
-            for (j in i + 1 until boundingBoxes.size) {
-                if (j >= boundingBoxes.size) break
-                val nextBox = boundingBoxes[j]
-                if (currentBox.x < nextBox.x + nextBox.width && currentBox.x + currentBox.width > nextBox.x) {
-                    boundingBoxes.removeAt(j)
-                }
-            }
-        }
-         */
-        // Remove bounding boxes with abysmally small widths
+        // Remove small bounding boxes
         val minBoxWidth = 40
         boundingBoxes.removeIf { it.width < minBoxWidth }
+        // Add results to the boundingBoxes list
         return boundingBoxes.distinct()
     }
     private fun renderBoundingBoxes(inputBitmap: Bitmap, boundingBoxes: List<BoundingBox>): Bitmap {

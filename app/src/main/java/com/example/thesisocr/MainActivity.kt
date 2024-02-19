@@ -76,17 +76,19 @@ class MainActivity : AppCompatActivity() {
         var selectedModelByteArray = selectModel(1)
         ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         var result = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
-        /*
         if (result != null) {
+            // Display image to UI.
             displayImage(result.outputBitmap)
+            // Save image to device [DEBUGGING].
             saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+            // Crop image to bounding boxes.
+            val croppedBitmapList = PaddleDetectorPostProcessing().cropBitmapToBoundingBoxes(rescaledBitmap, result.boundingBoxList)
+            // Run recognition model.
             selectedModelByteArray = selectModel(2)
             ortSession.close()
             ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-            result = textRecognition.recognize(rescaledBitmap, ortEnv, ortSession)
+            result = textRecognition.recognize(croppedBitmapList, ortEnv, ortSession)
         }
-
-         */
         Log.d("Text Recognition", result.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")

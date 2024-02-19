@@ -16,19 +16,27 @@ import java.util.Collections
  * Refer to the en_dict.txt file found in this project's raw folder.
  */
 
-// TODO: Replace rec_model.onnx with version wth fixed input shape.
+/**
+ * NOTE: PaddlePaddleOCR GitHub discussions
+ */
+// TODO: Determine image resolution that works.
 internal data class textResults(
-    var listOfStrings: Array<String>
+    var listOfStringConfidence: MutableList<Pair<String,Float>>,
 )
 internal class PaddleRecognition {
     val modelVocab = getModelVocabFromResources()
-    fun recognize(bitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
+    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
         Log.d("PaddleRecognition", "Recognizing text.")
-        Log.d("PaddleRecognition", "Bitmap size: ${bitmap.width} x ${bitmap.height}")
-        return runModel(bitmap, ortSession, ortEnvironment)
+        Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
+        return runModel(listOfInputBitmaps, ortSession, ortEnvironment)
     }
-    private fun runModel(bitmap: Bitmap, ortSession: OrtSession, ortEnvironment: OrtEnvironment): Result? {
-        val imageArray = bitmapToFloatArray(bitmap)
+    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): Result? {
+        val batchSize = listOfInputBitmaps.size
+        // Add an additional dimension for the batch size at the beginning.
+        // Convert all list Bitmaps to Float Array
+        val inputArray: Array<Array<Array<FloatArray>>> = Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
+        // Transpose Width and Height to Height and Width
+
         Log.d("PaddleRecognition", "Image Array Sizes: ${imageArray.size} x ${imageArray[0].size} x ${imageArray[0][0].size} x ${imageArray[0][0][0].size}")
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
         val output = ortSession.run(
@@ -37,30 +45,38 @@ internal class PaddleRecognition {
         output.use {
             val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
             // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
-            // batchSize expected to be 1
-            Log.d("PaddleRecognition", "rawOutput: ${rawOutput[0][0][0]}")
-            Log.d("PaddleRecognition", "rawOutput: ${rawOutput[0][0][1]}")
-            Log.d("PaddleRecognition", "rawOutput: ${rawOutput[0][0][2]}")
-            val listOfStrings = mutableListOf<String>()
-
+            // NOTE: batchSize is variable in this case.
+            Log.d("PaddleRecognition", "Output Array Sizes: ${rawOutput.size} x ${rawOutput[0].size} x ${rawOutput[0][0].size}")
         }
         return null
     }
-    private fun bitmapToFloatArray(bitmap: Bitmap): Array<Array<Array<FloatArray>>> {
+    private fun bitmapToFloatArray(bitmap: Bitmap): Array<Array<FloatArray>> {
         val channels = 3
-        val batchSize = 1
         val width = bitmap.width
         val height = bitmap.height
-        val floatArray = Array(batchSize) { Array(channels) { Array(width) { FloatArray(height) } } }
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val pixel = bitmap.getPixel(x, y)
-                floatArray[0][0][x][y] = (pixel shr 16 and 0xFF) / 255.0f // red
-                floatArray[0][1][x][y] = (pixel shr 8 and 0xFF) / 255.0f // green
-                floatArray[0][2][x][y] = (pixel and 0xFF) / 255.0f // blue
+        val imageArray = Array(channels) { Array(width) { FloatArray(height) } }
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val pixel = bitmap.getPixel(i, j)
+                imageArray[0][i][j] = (pixel shr 16 and 0xFF) / 255.0f
+                imageArray[1][i][j] = (pixel shr 8 and 0xFF) / 255.0f
+                imageArray[2][i][j] = (pixel and 0xFF) / 255.0f
             }
         }
-        return floatArray
+        return imageArray
+    }
+    private fun transposeWidthHeightToHeightWidth(inputArray: Array<Array<FloatArray>>): Array<Array<FloatArray>> {
+        // Transpose only the last two dimensions with each other.
+        // Dimensions: Channels, Width, Height
+        val transposedArray = Array(inputArray.size) { Array(inputArray[0][0].size) { FloatArray(inputArray[0].size) } }
+        for (i in inputArray.indices) {
+            for (j in inputArray[0].indices) {
+                for (k in inputArray[0][0].indices) {
+                    transposedArray[i][k][j] = inputArray[i][j][k]
+                }
+            }
+        }
+        return transposedArray
     }
     private fun getModelVocabFromResources(): List<String> {
         val vocab = mutableListOf<String>()

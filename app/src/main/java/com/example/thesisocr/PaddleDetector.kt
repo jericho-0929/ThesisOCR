@@ -20,7 +20,6 @@ import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.FileOutputStream
-import java.nio.FloatBuffer
 import java.util.Collections
 
 /**
@@ -57,7 +56,8 @@ class PaddleDetector {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Run the model.
-        val output = ortSession.run(
+        var output: OrtSession.Result
+        output = ortSession.run(
             Collections.singletonMap("x", onnxTensor)
         )
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")

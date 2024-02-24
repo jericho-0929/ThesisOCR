@@ -20,63 +20,108 @@ import java.util.Collections
  * NOTE: PaddlePaddleOCR GitHub discussions
  */
 // TODO: Determine image resolution that works.
-internal data class textResults(
-    var listOfStringConfidence: MutableList<Pair<String,Float>>,
-)
 internal class PaddleRecognition {
+    data class textResult(
+        var listOfStringConfidence: MutableList<Pair<String,Float>>,
+    )
     val modelVocab = getModelVocabFromResources()
-    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
+    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): textResult? {
         Log.d("PaddleRecognition", "Recognizing text.")
         Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
         return runModel(listOfInputBitmaps, ortSession, ortEnvironment)
     }
-    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): Result? {
+    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): textResult? {
         val batchSize = listOfInputBitmaps.size
         // Add an additional dimension for the batch size at the beginning.
-        // Convert all list Bitmaps to Float Array
-        val inputArray: Array<Array<Array<FloatArray>>> = Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
-        // Transpose Width and Height to Height and Width
-
-        Log.d("PaddleRecognition", "Image Array Sizes: ${imageArray.size} x ${imageArray[0].size} x ${imageArray[0][0].size} x ${imageArray[0][0][0].size}")
-        val inputTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
+        // Convert all list Bitmaps to Float Array.
+        var inputArray: Array<Array<Array<FloatArray>>> =
+            Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
+        // Pad the width dimensions to the maximum width.
+        inputArray = padWidthDimensions(inputArray)
+        Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
+        Log.d(
+            "PaddleRecognition",
+            "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}"
+        )
+        Log.d("PaddleRecognition", "Creating input tensor.")
+        val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
+        Log.d("PaddleRecognition", "Running model.")
+        var recognitionInferenceTime = System.currentTimeMillis()
         val output = ortSession.run(
             Collections.singletonMap("x", inputTensor)
         )
+        recognitionInferenceTime = System.currentTimeMillis() - recognitionInferenceTime
+        Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime ms.")
+        Log.d("PaddleRecognition", "Processing output.")
         output.use {
             val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
             // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
             // NOTE: batchSize is variable in this case.
-            Log.d("PaddleRecognition", "Output Array Sizes: ${rawOutput.size} x ${rawOutput[0].size} x ${rawOutput[0][0].size}")
+            Log.d(
+                "PaddleRecognition",
+                "Output Array Sizes: ${rawOutput.size} x ${rawOutput[0].size} x ${rawOutput[0][0].size}"
+            )
         }
-        return null
+        return textResult(mutableListOf()) // TODO: Replace with actual result.
+    }
+    private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
     private fun bitmapToFloatArray(bitmap: Bitmap): Array<Array<FloatArray>> {
+        // Rescale bitmap to height 48 while maintaining width
+        val rescaledBitmap = rescaleBitmap(bitmap, bitmap.width, 48)
+        // Convert bitmap to float array.
         val channels = 3
-        val width = bitmap.width
-        val height = bitmap.height
+        val width = rescaledBitmap.width
+        val height = rescaledBitmap.height
         val imageArray = Array(channels) { Array(width) { FloatArray(height) } }
         for (i in 0 until width) {
             for (j in 0 until height) {
-                val pixel = bitmap.getPixel(i, j)
+                val pixel = rescaledBitmap.getPixel(i, j)
                 imageArray[0][i][j] = (pixel shr 16 and 0xFF) / 255.0f
                 imageArray[1][i][j] = (pixel shr 8 and 0xFF) / 255.0f
                 imageArray[2][i][j] = (pixel and 0xFF) / 255.0f
             }
         }
-        return imageArray
-    }
-    private fun transposeWidthHeightToHeightWidth(inputArray: Array<Array<FloatArray>>): Array<Array<FloatArray>> {
-        // Transpose only the last two dimensions with each other.
-        // Dimensions: Channels, Width, Height
-        val transposedArray = Array(inputArray.size) { Array(inputArray[0][0].size) { FloatArray(inputArray[0].size) } }
-        for (i in inputArray.indices) {
-            for (j in inputArray[0].indices) {
-                for (k in inputArray[0][0].indices) {
-                    transposedArray[i][k][j] = inputArray[i][j][k]
+        // Transpose where width and height are swapped.
+        val transposedArray = Array(channels) { Array(height) { FloatArray(width) } }
+        for (i in 0 until channels) {
+            for (j in 0 until width) {
+                for (k in 0 until height) {
+                    transposedArray[i][k][j] = imageArray[i][j][k]
                 }
             }
         }
         return transposedArray
+    }
+    private fun padWidthDimensions(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>> {
+        // Width is the 4th dimension while height is the 3rd dimension.
+        val batchSize = inputArray.size
+        var maxWidth = inputArray[0][0][0].size
+        for (i in 0 until batchSize) {
+            for (j in 0 until 3) {
+                for (k in 0 until 48) {
+                    if (inputArray[i][j][k].size > maxWidth) {
+                        maxWidth = inputArray[i][j][k].size
+                    }
+                }
+            }
+        }
+        val paddedArray = Array(batchSize) { Array(3) { Array(48) { FloatArray(maxWidth) } } }
+        for (i in 0 until batchSize) {
+            for (j in 0 until 3) {
+                for (k in 0 until 48) {
+                    for (l in 0 until maxWidth) {
+                        if (l < inputArray[i][j][k].size) {
+                            paddedArray[i][j][k][l] = inputArray[i][j][k][l]
+                        } else {
+                            paddedArray[i][j][k][l] = 0.0f
+                        }
+                    }
+                }
+            }
+        }
+        return paddedArray
     }
     private fun getModelVocabFromResources(): List<String> {
         val vocab = mutableListOf<String>()

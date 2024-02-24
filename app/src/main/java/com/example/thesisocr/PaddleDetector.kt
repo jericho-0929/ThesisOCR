@@ -57,9 +57,12 @@ class PaddleDetector {
         val bitmapHeight = inputBitmap.height
         // Run the model.
         var output: OrtSession.Result
+        var detectionInferenceTime = System.currentTimeMillis()
         output = ortSession.run(
             Collections.singletonMap("x", onnxTensor)
         )
+        detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
+        Log.d("PaddleDetector", "Detection Model Runtime: $detectionInferenceTime ms")
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")
         output.use {
             // Feature map from the model's output.

@@ -246,6 +246,15 @@ class PaddleDetector {
         Utils.matToBitmap(dilatedMat, dilatedBitmap)
         return inputBitmap
     }
+    fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<PaddleDetector.BoundingBox>): List<Bitmap> {
+        // BoundingBox variables: x, y, width, height
+        val croppedBitmapList = mutableListOf<Bitmap>()
+        for (boundingBox in boundingBoxList){
+            val croppedBitmap = Bitmap.createBitmap(inputBitmap, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
+            croppedBitmapList.add(croppedBitmap)
+        }
+        return croppedBitmapList
+    }
     // Debugging functions
     private fun debugSaveImage(bitmap: Bitmap, filename: String){
         val fileOutputStream = FileOutputStream(filename)

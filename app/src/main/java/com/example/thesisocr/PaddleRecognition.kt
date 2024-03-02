@@ -21,16 +21,16 @@ import java.util.Collections
  */
 // TODO: Determine image resolution that works.
 internal class PaddleRecognition {
-    data class textResult(
-        var listOfStringConfidence: MutableList<Pair<String,Float>>,
+    data class TextResult(
+        var listOfStrings: MutableList<String>,
     )
-    val modelVocab = getModelVocabFromResources()
-    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): textResult? {
+    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult? {
         Log.d("PaddleRecognition", "Recognizing text.")
         Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
-        return runModel(listOfInputBitmaps, ortSession, ortEnvironment)
+        return runModel(listOfInputBitmaps, ortSession, ortEnvironment, modelVocab)
     }
-    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): textResult? {
+    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
+        val listOfStrings = mutableListOf<String>()
         val batchSize = listOfInputBitmaps.size
         // Add an additional dimension for the batch size at the beginning.
         // Convert all list Bitmaps to Float Array.
@@ -39,10 +39,6 @@ internal class PaddleRecognition {
         // Pad the width dimensions to the maximum width.
         inputArray = padWidthDimensions(inputArray)
         Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
-        Log.d(
-            "PaddleRecognition",
-            "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}"
-        )
         Log.d("PaddleRecognition", "Creating input tensor.")
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         Log.d("PaddleRecognition", "Running model.")
@@ -61,8 +57,21 @@ internal class PaddleRecognition {
                 "PaddleRecognition",
                 "Output Array Sizes: ${rawOutput.size} x ${rawOutput[0].size} x ${rawOutput[0][0].size}"
             )
+            for (i in 0 until batchSize) {
+                val debugBitmap = convertArrayToBitmap(inputArray[i]) // TODO: Remove after debugging.
+                val sequenceLength = rawOutput[i].size
+                val sequence = mutableListOf<String>()
+                for (j in 0 until sequenceLength) {
+                    val maxIndex =  rawOutput[i][j].indices.maxByOrNull { rawOutput[i][j][it] } ?: -1
+                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.85f){
+                        sequence.add(modelVocab[maxIndex - 1])
+                    }
+                }
+                Log.d("PaddleRecognition", "Sequence $i: $sequence")
+                listOfStrings.add(sequence.joinToString(""))
+            }
         }
-        return textResult(mutableListOf()) // TODO: Replace with actual result.
+        return TextResult(listOfStrings)
     }
     private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
@@ -123,15 +132,21 @@ internal class PaddleRecognition {
         }
         return paddedArray
     }
-    private fun getModelVocabFromResources(): List<String> {
-        val vocab = mutableListOf<String>()
-        val inputStream = this.javaClass.classLoader?.getResourceAsStream("raw/en_dict.txt")
-        inputStream?.bufferedReader()?.useLines { lines ->
-            lines.forEach {
-                vocab.add(it)
+    // Debugging functions
+    private fun convertArrayToBitmap(array: Array<Array<FloatArray>>): Bitmap {
+        // Width is the 3rd dimension while height is the 2nd dimension.
+        val width = array[0][0].size
+        val height = array[0].size
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val red = (array[0][j][i] * 255).toInt()
+                val green = (array[1][j][i] * 255).toInt()
+                val blue = (array[2][j][i] * 255).toInt()
+                val pixel = 0xff shl 24 or (red shl 16) or (green shl 8) or blue
+                bitmap.setPixel(i, j, pixel)
             }
         }
-        return vocab
+        return bitmap
     }
-    // Debugging functions
 }

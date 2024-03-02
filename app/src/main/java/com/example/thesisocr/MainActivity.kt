@@ -19,6 +19,8 @@ import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
+    // Model Vocabulary from en_dict.txt raw resource file.
+    private lateinit var modelVocab: List<String>
     // ONNX Variables
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession
@@ -27,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
     private val preProcessing = PreProcessing()
+    private val imageProcessing = ImageProcessing()
     private val textRecognition = PaddleRecognition()
     private val textDetection = PaddleDetector()
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -43,6 +46,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Load Model Vocabulary
+        modelVocab = loadDictionary()
         // Load OpenCV
         OpenCVLoader.initLocal()
         if(OpenCVLoader.initLocal()){
@@ -83,14 +88,16 @@ class MainActivity : AppCompatActivity() {
             // Save image to device [DEBUGGING].
             // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             // Crop image to bounding boxes.
-            val croppedBitmapList = PaddleDetectorPostProcessing().cropBitmapToBoundingBoxes(rescaleBitmap(bitmap,640,480), detectionResult.boundingBoxList)
+            val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(
+                imageProcessing.processImageForRecognition(rescaleBitmap(bitmap,640,480)),
+                detectionResult.boundingBoxList)
             detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
             Log.d("Text Detection", "Detection (inc. processing) Inference Time: $detectionInferenceTime ms")
             // Run recognition model.
             selectedModelByteArray = selectModel(2)
             ortSession.close()
             ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-            val recognitionResult = textRecognition.recognize(croppedBitmapList, ortEnv, ortSession)
+            val recognitionResult = textRecognition.recognize(croppedBitmapList, ortEnv, ortSession, modelVocab)
         }
         Log.d("Text Recognition", detectionResult.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
@@ -131,5 +138,15 @@ class MainActivity : AppCompatActivity() {
         val fileOutputStream = FileOutputStream(filename)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
+    }
+    private fun loadDictionary(): List<String> {
+        val inputStream = resources.openRawResource(R.raw.en_dict)
+        val dictionary = mutableListOf<String>()
+        inputStream.bufferedReader().useLines { lines ->
+            lines.forEach {
+                dictionary.add(it)
+            }
+        }
+        return dictionary
     }
 }

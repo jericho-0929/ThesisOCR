@@ -75,7 +75,9 @@ class MainActivity : AppCompatActivity() {
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun neuralNetProcess(bitmap: Bitmap){
-        val rescaledBitmap = rescaleBitmap(bitmap, 640, 480)
+        val bitmapResizeWidth = 1280
+        val bitmapResizeHeight = 960
+        val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
         var detectionInferenceTime = System.currentTimeMillis()
@@ -89,15 +91,19 @@ class MainActivity : AppCompatActivity() {
             // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             // Crop image to bounding boxes.
             val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(
-                imageProcessing.processImageForRecognition(rescaleBitmap(bitmap,640,480)),
+                rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight),
                 detectionResult.boundingBoxList)
+            val preProcessedList = mutableListOf<Bitmap>()
+            for (i in 0 until croppedBitmapList.size){
+                preProcessedList.add(imageProcessing.processImageForRecognition(croppedBitmapList[i]))
+            }
             detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
             Log.d("Text Detection", "Detection (inc. processing) Inference Time: $detectionInferenceTime ms")
             // Run recognition model.
             selectedModelByteArray = selectModel(2)
             ortSession.close()
             ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-            val recognitionResult = textRecognition.recognize(croppedBitmapList, ortEnv, ortSession, modelVocab)
+            val recognitionResult = textRecognition.recognize(preProcessedList, ortEnv, ortSession, modelVocab)
         }
         Log.d("Text Recognition", detectionResult.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())

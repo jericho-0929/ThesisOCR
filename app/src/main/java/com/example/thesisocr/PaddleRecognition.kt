@@ -63,8 +63,11 @@ internal class PaddleRecognition {
                 val sequence = mutableListOf<String>()
                 for (j in 0 until sequenceLength) {
                     val maxIndex =  rawOutput[i][j].indices.maxByOrNull { rawOutput[i][j][it] } ?: -1
-                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.85f){
+                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.75f){
                         sequence.add(modelVocab[maxIndex - 1])
+                    } else {
+                        // TODO: Implement CTC loss handling.
+                        // sequence.add(" ")
                     }
                 }
                 Log.d("PaddleRecognition", "Sequence $i: $sequence")

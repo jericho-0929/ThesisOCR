@@ -17,9 +17,9 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 class PreProcessing {
+    // TODO: MOVE ALL FUNCTIONS TO A IMAGEPROCESSING.KT FILE
     // DONE: Implement Canny Edge Detection
     // DONE: Implement Hough Transform
-    // TODO: Implement class and function calls on MainActivity.kt
 
     /*
      Call the functions in order of: cannyEdge -> houghTransform().

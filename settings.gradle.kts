@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ThesisOCR"
 include(":app")
+include(":opencv")

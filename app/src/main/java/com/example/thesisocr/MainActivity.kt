@@ -2,6 +2,7 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.providers.NNAPIFlags
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -17,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.thesisocr.databinding.ActivityMainBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
+import java.util.EnumSet
 
 class MainActivity : AppCompatActivity() {
     // Model Vocabulary from en_dict.txt raw resource file.
@@ -81,8 +83,8 @@ class MainActivity : AppCompatActivity() {
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
         var detectionInferenceTime = System.currentTimeMillis()
-        var selectedModelByteArray = selectModel(1)
-        ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
+        ortSession = createOrtSession(selectModel(1), ortSessionConfigurations())
+        ortSessionConfigurations()
         val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
         if (detectionResult != null) {
             // Display image to UI.
@@ -90,25 +92,42 @@ class MainActivity : AppCompatActivity() {
             // Save image to device [DEBUGGING].
             // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             // Crop image to bounding boxes.
-            val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(
-                rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight),
-                detectionResult.boundingBoxList)
-            val preProcessedList = mutableListOf<Bitmap>()
-            for (i in 0 until croppedBitmapList.size){
-                preProcessedList.add(imageProcessing.processImageForRecognition(croppedBitmapList[i]))
-            }
+            val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
             detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
             Log.d("Text Detection", "Detection (inc. processing) Inference Time: $detectionInferenceTime ms")
             // Run recognition model.
-            selectedModelByteArray = selectModel(2)
-            ortSession.close()
-            ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
-            val recognitionResult = textRecognition.recognize(preProcessedList, ortEnv, ortSession, modelVocab)
+            ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
+            val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
         }
         Log.d("Text Recognition", detectionResult.toString())
         // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
+    }
+    private fun createOrtSession(modelToLoad: ByteArray, sessionOptions: OrtSession.SessionOptions): OrtSession {
+        return ortEnv.createSession(modelToLoad, sessionOptions)
+    }
+    private fun ortSessionConfigurations(): OrtSession.SessionOptions {
+        val sessionOptions = OrtSession.SessionOptions()
+        // Add NNAPI with configurations
+        val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
+        sessionOptions.addNnapi(nnapiFlags)
+        // Execution Mode and Optimization Level
+        sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
+        // Thread Pool Configuration
+        sessionOptions.setIntraOpNumThreads(4)
+        // Get settings information
+        val sessionOptionInfo = sessionOptions.configEntries
+        Log.d("Session Options", "Session Options: $sessionOptionInfo")
+        return sessionOptions
+    }
+    private fun cropAndProcessBitmapList(inputBitmap: Bitmap, detectionResult: PaddleDetector.Result): MutableList<Bitmap>{
+        val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(inputBitmap, detectionResult.boundingBoxList)
+        val preProcessedList = mutableListOf<Bitmap>()
+        for (element in croppedBitmapList){
+            preProcessedList.add(imageProcessing.processImageForRecognition(element))
+        }
+        return preProcessedList
     }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE

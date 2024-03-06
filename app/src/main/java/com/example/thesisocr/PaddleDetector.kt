@@ -145,7 +145,7 @@ class PaddleDetector {
             }
         }
         // Remove small bounding boxes
-        val minBoxWidth = 60
+        val minBoxWidth = 80
         boundingBoxes.removeIf { it.width < minBoxWidth }
         // Add results to the boundingBoxes list
         return boundingBoxes.distinct()

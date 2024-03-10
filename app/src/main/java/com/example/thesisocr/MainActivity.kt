@@ -99,8 +99,6 @@ class MainActivity : AppCompatActivity() {
             ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
             val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
         }
-        Log.d("Text Recognition", detectionResult.toString())
-        // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }

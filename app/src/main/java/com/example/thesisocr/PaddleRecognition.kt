@@ -7,7 +7,14 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
 
@@ -30,8 +37,9 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
         return runModel(listOfInputBitmaps, ortSession, ortEnvironment, modelVocab)
     }
-    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? = runBlocking {
+    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
         val listOfStrings = mutableListOf<String>()
+        val recognitionOutput = mutableListOf<List<String>>()
         val batchSize = listOfInputBitmaps.size
         // Add an additional dimension for the batch size at the beginning.
         // Convert all list Bitmaps to Float Array.
@@ -42,16 +50,28 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, 6)
+        val inferenceChunks = splitIntoChunks(inputArray, 8)
         var recognitionInferenceTime = System.currentTimeMillis()
-        // Process each chunk in parallel.
-        for (chunk in inferenceChunks) {
-            val result = performInference(chunk, ortSession, ortEnvironment, modelVocab)
-            listOfStrings.addAll(result)
+        // Process each chunk in parallel using async().
+        runBlocking {
+            val deferredList = mutableListOf<Deferred<List<String>>>()
+            for (chunk in inferenceChunks) {
+                // Launch a coroutine for each chunk.
+                val deferred = async(Dispatchers.Default) {
+                    performInference(chunk, ortSession, ortEnvironment, modelVocab)
+                }
+                // Add the deferred to the list.
+                deferredList.add(deferred)
+            }
+            // Wait for all coroutines to finish and collect their results.
+            val toAdd = deferredList.awaitAll().flatten()
+            // Add all strings to listOfStrings.
+            listOfStrings.addAll(toAdd)
         }
         recognitionInferenceTime = System.currentTimeMillis() - recognitionInferenceTime
         Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime ms.")
-        return@runBlocking TextResult(listOfStrings)
+        // TODO: Implement operations to transfer recognitionOutput to listOfStrings.
+        return TextResult(listOfStrings)
     }
     // Helper functions
     private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
@@ -114,7 +134,7 @@ internal class PaddleRecognition {
         return paddedArray
     }
     // Coroutine helper functions
-    private suspend fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> = coroutineScope {
+    private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> {
         val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
@@ -139,7 +159,7 @@ internal class PaddleRecognition {
                 Log.d("PaddleRecognition", "Recognized text: $sequence")
             }
         }
-        return@coroutineScope listOfStrings
+        return listOfStrings
     }
     private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
         // Convert inputArray to a List datatype.

@@ -82,22 +82,19 @@ class MainActivity : AppCompatActivity() {
         val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
-        var detectionInferenceTime = System.currentTimeMillis()
         ortSession = createOrtSession(selectModel(1), ortSessionConfigurations())
         ortSessionConfigurations()
         val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        ortSession.close()
         if (detectionResult != null) {
             // Display image to UI.
-            // displayImage(result.outputBitmap)
-            // Save image to device [DEBUGGING].
-            // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+            displayImage(detectionResult.outputBitmap)
             // Crop image to bounding boxes.
             val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
-            detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
-            Log.d("Text Detection", "Detection (inc. processing) Inference Time: $detectionInferenceTime ms")
             // Run recognition model.
             ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
             val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
+            ortSession.close()
         }
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")

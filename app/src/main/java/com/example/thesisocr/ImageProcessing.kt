@@ -8,6 +8,7 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 
 class ImageProcessing {
+    // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
         val grayMat = convertToGrayscaleMat(inputBitmap)
         val equalizedMat = histogramEqualization(grayMat)

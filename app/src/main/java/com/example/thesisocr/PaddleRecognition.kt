@@ -4,7 +4,11 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import java.util.Collections
 
 /**
@@ -16,10 +20,7 @@ import java.util.Collections
  * Refer to the en_dict.txt file found in this project's raw folder.
  */
 
-/**
- * NOTE: PaddlePaddleOCR GitHub discussions
- */
-// TODO: Determine image resolution that works.
+// TODO: IMPLEMENT COROUTINE FOR MODEL INFERENCE.
 internal class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,
@@ -29,7 +30,7 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
         return runModel(listOfInputBitmaps, ortSession, ortEnvironment, modelVocab)
     }
-    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
+    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? = runBlocking {
         val listOfStrings = mutableListOf<String>()
         val batchSize = listOfInputBitmaps.size
         // Add an additional dimension for the batch size at the beginning.
@@ -39,43 +40,20 @@ internal class PaddleRecognition {
         // Pad the width dimensions to the maximum width.
         inputArray = padWidthDimensions(inputArray)
         Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
-        Log.d("PaddleRecognition", "Creating input tensor.")
-        val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
-        Log.d("PaddleRecognition", "Running model.")
+        // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
+        // Split inputArray into chunks.
+        val inferenceChunks = splitIntoChunks(inputArray, 6)
         var recognitionInferenceTime = System.currentTimeMillis()
-        val output = ortSession.run(
-            Collections.singletonMap("x", inputTensor)
-        )
+        // Process each chunk in parallel.
+        for (chunk in inferenceChunks) {
+            val result = performInference(chunk, ortSession, ortEnvironment, modelVocab)
+            listOfStrings.addAll(result)
+        }
         recognitionInferenceTime = System.currentTimeMillis() - recognitionInferenceTime
         Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime ms.")
-        Log.d("PaddleRecognition", "Processing output.")
-        output.use {
-            val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
-            // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
-            // NOTE: batchSize is variable in this case.
-            Log.d(
-                "PaddleRecognition",
-                "Output Array Sizes: ${rawOutput.size} x ${rawOutput[0].size} x ${rawOutput[0][0].size}"
-            )
-            for (i in 0 until batchSize) {
-                val debugBitmap = convertArrayToBitmap(inputArray[i]) // TODO: Remove after debugging.
-                val sequenceLength = rawOutput[i].size
-                val sequence = mutableListOf<String>()
-                for (j in 0 until sequenceLength) {
-                    val maxIndex =  rawOutput[i][j].indices.maxByOrNull { rawOutput[i][j][it] } ?: -1
-                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.75f){
-                        sequence.add(modelVocab[maxIndex - 1])
-                    } else {
-                        // TODO: Implement CTC loss handling.
-                        // sequence.add(" ")
-                    }
-                }
-                Log.d("PaddleRecognition", "Sequence $i: $sequence")
-                listOfStrings.add(sequence.joinToString(""))
-            }
-        }
-        return TextResult(listOfStrings)
+        return@runBlocking TextResult(listOfStrings)
     }
+    // Helper functions
     private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
@@ -134,6 +112,41 @@ internal class PaddleRecognition {
             }
         }
         return paddedArray
+    }
+    // Coroutine helper functions
+    private suspend fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> = coroutineScope {
+        val listOfStrings = mutableListOf<String>()
+        // Convert chunk to Array<Array<Array<FloatArray>>>.
+        val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
+        val output = ortSession.run(Collections.singletonMap("x", inputTensor))
+        output.use {
+            val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
+            // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
+            // NOTE: batchSize is variable in this case.
+            for (i in chunk.indices) {
+                val sequenceLength = rawOutput[i].size
+                val sequence = mutableListOf<String>()
+                for (j in 0 until sequenceLength) {
+                    val maxIndex = rawOutput[i][j].indices.maxByOrNull { rawOutput[i][j][it] } ?: -1
+                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.75f) {
+                        sequence.add(modelVocab[maxIndex - 1])
+                    } else {
+                        // TODO: Implement CTC loss handling.
+                        // sequence.add(" ")
+                    }
+                }
+                listOfStrings.add(sequence.joinToString(""))
+                Log.d("PaddleRecognition", "Recognized text: $sequence")
+            }
+        }
+        return@coroutineScope listOfStrings
+    }
+    private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
+        // Convert inputArray to a List datatype.
+        val inputList = inputArray.toList()
+        // Split inputList into four parts.
+        val chunkSize = inputList.size / numOfChunks
+        return inputList.chunked(chunkSize)
     }
     // Debugging functions
     private fun convertArrayToBitmap(array: Array<Array<FloatArray>>): Bitmap {

@@ -17,6 +17,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
+import kotlin.time.measureTime
 
 /**
  * PaddleRecognition class for processing images using the PaddleOCR's text recognition model.
@@ -50,26 +51,30 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, 8)
-        var recognitionInferenceTime = System.currentTimeMillis()
+        val inferenceChunks = splitIntoChunks(inputArray, 4)
+        val toAdd: List<String>
         // Process each chunk in parallel using async().
         runBlocking {
             val deferredList = mutableListOf<Deferred<List<String>>>()
             for (chunk in inferenceChunks) {
-                // Launch a coroutine for each chunk.
-                val deferred = async(Dispatchers.Default) {
-                    performInference(chunk, ortSession, ortEnvironment, modelVocab)
+                val chunkInferenceTime = measureTime {
+                    // Launch a coroutine for each chunk.
+                    val deferred = async(Dispatchers.Default) {
+                        performInference(chunk, ortSession, ortEnvironment, modelVocab)
+                    }
+                    // Add the deferred to the list.
+                    deferredList.add(deferred)
                 }
-                // Add the deferred to the list.
-                deferredList.add(deferred)
+                Log.d("PaddleRecognition", "Chunk inference successful: $chunkInferenceTime.")
             }
             // Wait for all coroutines to finish and collect their results.
-            val toAdd = deferredList.awaitAll().flatten()
+            val recognitionInferenceTime = measureTime {
+                toAdd = deferredList.awaitAll().flatten()
+            }
             // Add all strings to listOfStrings.
             listOfStrings.addAll(toAdd)
+            Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime.")
         }
-        recognitionInferenceTime = System.currentTimeMillis() - recognitionInferenceTime
-        Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime ms.")
         // TODO: Implement operations to transfer recognitionOutput to listOfStrings.
         return TextResult(listOfStrings)
     }

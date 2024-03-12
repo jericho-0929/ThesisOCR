@@ -21,6 +21,7 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.FileOutputStream
 import java.util.Collections
+import kotlin.time.measureTime
 
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
@@ -55,6 +56,7 @@ class PaddleDetector {
     private fun runModel(ortEnvironment: OrtEnvironment, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
+        var output: OrtSession.Result
         val resizedBitmap = Bitmap.createScaledBitmap(
             inputBitmap, bitmapWidth / 2,
             bitmapHeight / 2, true)
@@ -63,12 +65,12 @@ class PaddleDetector {
         // Create input tensor.
         val onnxTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
         // Run the model.
-        var detectionInferenceTime = System.currentTimeMillis()
-        val output = ortSession.run(
-            Collections.singletonMap("x", onnxTensor)
-        )
-        detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
-        Log.d("PaddleDetector", "Detection Model Runtime: $detectionInferenceTime ms")
+        val detectionInferenceTime = measureTime {
+            output = ortSession.run(
+                Collections.singletonMap("x", onnxTensor)
+            )
+        }
+        Log.d("PaddleDetector", "Detection Model Runtime: $detectionInferenceTime")
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")
         output.use {
             // Feature map from the model's output.
@@ -88,6 +90,8 @@ class PaddleDetector {
             }
             // Upsize the outputImageBitmap to the original size.
             outputImageBitmap = Bitmap.createScaledBitmap(outputImageBitmap, bitmapWidth, bitmapHeight, true)
+            // Blacken out specified sections of the outputImageBitmap.
+            outputImageBitmap = ImageProcessing().sectionRemoval(outputImageBitmap)
             // Convert outputImageBitmap back to array.
             val outputArray = convertImageToFloatArray(outputImageBitmap)
             // Create bounding boxes from outputArray.

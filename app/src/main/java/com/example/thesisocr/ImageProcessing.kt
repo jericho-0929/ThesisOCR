@@ -8,6 +8,30 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 
 class ImageProcessing {
+    // Detection pre-processing functions.
+    // Blacken out 25% of the image's top and 10% of the image's right sections.
+    fun sectionRemoval(inputBitmap: Bitmap): Bitmap {
+        // Channel count is 4.
+        val inputMat = Mat()
+        Utils.bitmapToMat(inputBitmap, inputMat)
+        val height = inputMat.height()
+        val width = inputMat.width()
+        val top = (height * 0.25).toInt()
+        val right = (width * 0.10).toInt()
+        // Remove the specified top sections.
+        for (i in 0 until top) {
+            for (j in 0 until width) {
+                inputMat.put(i, j, 0.0, 0.0, 0.0, 0.0)
+            }
+        }
+        // Remove the specified right sections.
+        for (i in 0 until height) {
+            for (j in 0 until right) {
+                inputMat.put(i, width - j - 1, 0.0, 0.0, 0.0, 0.0)
+            }
+        }
+        return convertToBitmap(inputMat)
+    }
     // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
         val grayMat = convertToGrayscaleMat(inputBitmap)

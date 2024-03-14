@@ -21,6 +21,7 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.FileOutputStream
 import java.util.Collections
+import kotlin.time.measureTime
 
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
@@ -63,11 +64,12 @@ class PaddleDetector {
         // Create input tensor.
         val onnxTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
         // Run the model.
-        var detectionInferenceTime = System.currentTimeMillis()
-        val output = ortSession.run(
-            Collections.singletonMap("x", onnxTensor)
-        )
-        detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
+        var output: OrtSession.Result?
+        val detectionInferenceTime = measureTime {
+            output = ortSession.run(
+                Collections.singletonMap("x", onnxTensor)
+            )
+        }
         Log.d("PaddleDetector", "Detection Model Runtime: $detectionInferenceTime ms")
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")
         output.use {

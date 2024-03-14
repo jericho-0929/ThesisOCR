@@ -6,6 +6,7 @@ import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
 import android.util.Log
 import java.util.Collections
+import kotlin.time.measureTime
 
 /**
  * PaddleRecognition class for processing images using the PaddleOCR's text recognition model.
@@ -42,12 +43,13 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Creating input tensor.")
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         Log.d("PaddleRecognition", "Running model.")
-        var recognitionInferenceTime = System.currentTimeMillis()
-        val output = ortSession.run(
-            Collections.singletonMap("x", inputTensor)
-        )
-        recognitionInferenceTime = System.currentTimeMillis() - recognitionInferenceTime
-        Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime ms.")
+        val output: OrtSession.Result?
+        val recognitionInferenceTime = measureTime {
+            output = ortSession.run(
+                Collections.singletonMap("x", inputTensor)
+            )
+        }
+        Log.d("PaddleRecognition", "Inference Time: $recognitionInferenceTime")
         Log.d("PaddleRecognition", "Processing output.")
         output.use {
             val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>

@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     // TODO: Move camera call and file picker functions to separate class.
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
-    private val preProcessing = PreProcessing()
     private val imageProcessing = ImageProcessing()
     private val textRecognition = PaddleRecognition()
     private val textDetection = PaddleDetector()
@@ -69,38 +68,26 @@ class MainActivity : AppCompatActivity() {
             pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
     }
-    private fun imagePreProcess(bitmap: Bitmap){
-        Log.d("Image Pre-Processing", "Image Pre-Processing Started.")
-        val preProcessedBitmap = preProcessing.imagePreProcess(bitmap)
-        Log.d("Image Pre-Processing", "Image Pre-Processing Completed.")
-        displayImage(preProcessedBitmap)
-        Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
-    }
     private fun neuralNetProcess(bitmap: Bitmap){
         val bitmapResizeWidth = 1280
         val bitmapResizeHeight = 960
         val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         // Run detection model.
-        var detectionInferenceTime = System.currentTimeMillis()
         ortSession = createOrtSession(selectModel(1), ortSessionConfigurations())
         ortSessionConfigurations()
         val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        ortSession.close()
         if (detectionResult != null) {
             // Display image to UI.
-            // displayImage(result.outputBitmap)
-            // Save image to device [DEBUGGING].
-            // saveImage(result.outputBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
+            displayImage(detectionResult.outputBitmap)
             // Crop image to bounding boxes.
             val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
-            detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
-            Log.d("Text Detection", "Detection (inc. processing) Inference Time: $detectionInferenceTime ms")
             // Run recognition model.
             ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
             val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
+            ortSession.close()
         }
-        Log.d("Text Recognition", detectionResult.toString())
-        // ortSession = ortEnv.createSession(selectedModelByteArray, OrtSession.SessionOptions())
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }

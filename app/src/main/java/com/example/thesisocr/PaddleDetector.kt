@@ -21,6 +21,7 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.FileOutputStream
 import java.util.Collections
+import kotlin.time.measureTime
 
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
@@ -45,52 +46,58 @@ class PaddleDetector {
         val imageArray = convertImageToFloatArray(bitmap)
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
         Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
-        return runModel(inputTensor, ortSession, bitmap)
+        return runModel(ortEnvironment, ortSession, bitmap)
     }
     /**  TODO: Determine cause of crash when running the model
         *   with a lower than the camera's default resolution
         *   but works with a 640 x 480 input.
      *   TODO: Implement method to merge/mask output image with input image.
      */
-    private fun runModel(onnxTensor: OnnxTensor, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
+    private fun runModel(ortEnvironment: OrtEnvironment, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
+        val resizedBitmap = Bitmap.createScaledBitmap(
+            inputBitmap, bitmapWidth / 2,
+            bitmapHeight / 2, true)
+        // Convert bitmap to array.
+        val imageArray = convertImageToFloatArray(resizedBitmap)
+        // Create input tensor.
+        val onnxTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
         // Run the model.
-        var output: OrtSession.Result
-        var detectionInferenceTime = System.currentTimeMillis()
-        output = ortSession.run(
-            Collections.singletonMap("x", onnxTensor)
-        )
-        detectionInferenceTime = System.currentTimeMillis() - detectionInferenceTime
+        var output: OrtSession.Result?
+        val detectionInferenceTime = measureTime {
+            output = ortSession.run(
+                Collections.singletonMap("x", onnxTensor)
+            )
+        }
         Log.d("PaddleDetector", "Detection Model Runtime: $detectionInferenceTime ms")
         Log.d("PaddleDetector", "Model run completed.\nHandling output.")
         output.use {
             // Feature map from the model's output.
             val rawOutput = output?.get(0)?.value as Array<Array<Array<FloatArray>>>
             // Convert rawOutput to a Bitmap
-            var outputImageBitmap = Bitmap.createBitmap(bitmapWidth,bitmapHeight, Bitmap.Config.ARGB_8888)
-            // Convert Array to Bitmap
+            var outputImageBitmap = Bitmap.createBitmap(
+                resizedBitmap.width, resizedBitmap.height, Bitmap.Config.ARGB_8888
+            )
             val multiplier = -255.0f * 2.0f
-            for (i in 0 until bitmapWidth) {
-                for (j in 0 until bitmapHeight) {
+            for (i in 0 until resizedBitmap.width) {
+                for (j in 0 until resizedBitmap.height) {
                     val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
-                    outputImageBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
+                    outputImageBitmap.setPixel(
+                        i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity)
+                    )
                 }
             }
-            // Create bounding boxes from rawOutput
-            val boundingBoxes = createBoundingBoxes(rawOutput, inputBitmap)
+            // Upsize the outputImageBitmap to the original size.
+            outputImageBitmap = Bitmap.createScaledBitmap(outputImageBitmap, bitmapWidth, bitmapHeight, true)
+            // Convert outputImageBitmap back to array.
+            val outputArray = convertImageToFloatArray(outputImageBitmap)
+            // Create bounding boxes from outputArray.
+            val boundingBoxes = createBoundingBoxes(outputArray, inputBitmap)
             Log.d("PaddleDetector", "Bounding boxes created.")
-            val monochromeBitmap = convertToMonochrome(outputImageBitmap)
-            outputImageBitmap = monochromeBitmap
-            debugSaveImage(monochromeBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/monochrome.jpg")
-            // Log.d("PaddleDetector", "Pixel at 0,0: ${outputImageBitmap.getPixel(0,0).red}")
-            // debugSaveImage(outputImageBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg")
             Log.d("PaddleDetector", "Model output handled.\nPaddleDetector completed.")
-            debugSaveImage(outputImageBitmap, Environment.getExternalStorageDirectory().toString() + "/Pictures/detectionOutput.jpg")
-            outputImageBitmap = maskInputWithOutput(inputBitmap, outputImageBitmap)
             val boundingBoxesImage = renderBoundingBoxes(inputBitmap, boundingBoxes)
-            debugSaveImage(boundingBoxesImage, Environment.getExternalStorageDirectory().toString() + "/Pictures/boundingBoxes.jpg")
-            return Result(outputImageBitmap, boundingBoxes)
+            return Result(boundingBoxesImage, boundingBoxes)
         }
     }
     private fun createBoundingBoxes(rawOutput: Array<Array<Array<FloatArray>>>, inputBitmap: Bitmap): List<BoundingBox> {

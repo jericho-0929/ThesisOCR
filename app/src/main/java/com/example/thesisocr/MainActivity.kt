@@ -103,18 +103,21 @@ class MainActivity : AppCompatActivity() {
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun createOrtSession(modelToLoad: ByteArray, sessionOptions: OrtSession.SessionOptions): OrtSession {
+        OrtEnvironment.getAvailableProviders().forEach {
+            Log.d("Available Providers", "Available Providers: $it")
+        }
         return ortEnv.createSession(modelToLoad, sessionOptions)
     }
     private fun ortSessionConfigurations(): OrtSession.SessionOptions {
         val sessionOptions = OrtSession.SessionOptions()
-        // Set optimization level.
-        sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)
         // Set NNAPI flags.
         val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
         // Add NNAPI
         sessionOptions.addNnapi(nnapiFlags)
         // Execution Mode and Optimization Level
         sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
+        sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)
+        sessionOptions.setIntraOpNumThreads(4)
         // Get settings information
         val sessionOptionInfo = sessionOptions.configEntries
         Log.d("Session Options", "Session Options: $sessionOptionInfo")

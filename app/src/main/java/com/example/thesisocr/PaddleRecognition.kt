@@ -39,6 +39,9 @@ internal class PaddleRecognition {
         return runModel(listOfInputBitmaps, ortSession, ortEnvironment, modelVocab)
     }
     private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
+        // Get number of cores present in Android device.
+        val numOfCoresToUse = Runtime.getRuntime().availableProcessors()
+        // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()
         val batchSize = listOfInputBitmaps.size
@@ -51,21 +54,19 @@ internal class PaddleRecognition {
         Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, 4)
+        val inferenceChunks = splitIntoChunks(inputArray, numOfCoresToUse)
         val toAdd: List<String>
+        Log.d("PaddleRecognition", "Starting recognition inference.")
         // Process each chunk in parallel using async().
         runBlocking {
             val deferredList = mutableListOf<Deferred<List<String>>>()
             for (chunk in inferenceChunks) {
-                val chunkInferenceTime = measureTime {
-                    // Launch a coroutine for each chunk.
-                    val deferred = async(Dispatchers.Default) {
-                        performInference(chunk, ortSession, ortEnvironment, modelVocab)
-                    }
-                    // Add the deferred to the list.
-                    deferredList.add(deferred)
+                // Launch a coroutine for each chunk.
+                val deferred = async(Dispatchers.Default) {
+                    performInference(chunk, ortSession, ortEnvironment, modelVocab)
                 }
-                Log.d("PaddleRecognition", "Chunk inference successful: $chunkInferenceTime.")
+                // Add the deferred to the list.
+                deferredList.add(deferred)
             }
             // Wait for all coroutines to finish and collect their results.
             val recognitionInferenceTime = measureTime {
@@ -140,6 +141,8 @@ internal class PaddleRecognition {
     }
     // Coroutine helper functions
     private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> {
+        // Log chunk dimensions.
+        Log.d("PaddleRecognition", "Chunk dimensions: ${chunk.size} x ${chunk[0].size} x ${chunk[0][0].size} x ${chunk[0][0][0].size}")
         val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())

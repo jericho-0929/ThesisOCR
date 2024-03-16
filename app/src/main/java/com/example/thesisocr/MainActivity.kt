@@ -81,10 +81,11 @@ class MainActivity : AppCompatActivity() {
         val bitmapResizeHeight = 960
         val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
+        val ortSessionOptions = ortSessionConfigurations()
         // Run detection model.
-        ortSession = createOrtSession(selectModel(1), ortSessionConfigurations())
-        ortSessionConfigurations()
+        ortSession = createOrtSession(selectModel(1), ortSessionOptions)
         val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
+        ortSession.endProfiling()
         ortSession.close()
         if (detectionResult != null) {
             // Display image to UI.
@@ -92,9 +93,11 @@ class MainActivity : AppCompatActivity() {
             // Crop image to bounding boxes.
             val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
             // Run recognition model.
-            ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
+            ortSession = createOrtSession(selectModel(2), ortSessionOptions)
             val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
+            ortSession.endProfiling()
             ortSession.close()
+            ortSessionOptions.close()
         }
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
@@ -104,16 +107,20 @@ class MainActivity : AppCompatActivity() {
     }
     private fun ortSessionConfigurations(): OrtSession.SessionOptions {
         val sessionOptions = OrtSession.SessionOptions()
-        // Add NNAPI with configurations
+        // Set optimization level.
+        sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)
+        // Set NNAPI flags.
         val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
+        // Add NNAPI
         sessionOptions.addNnapi(nnapiFlags)
         // Execution Mode and Optimization Level
         sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
-        // Thread Pool Configuration
-        sessionOptions.setIntraOpNumThreads(4)
         // Get settings information
         val sessionOptionInfo = sessionOptions.configEntries
         Log.d("Session Options", "Session Options: $sessionOptionInfo")
+        // Turn on profiling
+        // Save to profile.log at device's documents directory.
+        sessionOptions.enableProfiling(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString() + "/profile.log")
         return sessionOptions
     }
     private fun cropAndProcessBitmapList(inputBitmap: Bitmap, detectionResult: PaddleDetector.Result): MutableList<Bitmap>{

@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     // TODO: Move camera call and file picker functions to separate class.
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
-    private val preProcessing = PreProcessing()
     private val imageProcessing = ImageProcessing()
     private val textRecognition = PaddleRecognition()
     private val textDetection = PaddleDetector()
@@ -68,13 +67,6 @@ class MainActivity : AppCompatActivity() {
         btnSelectImage.setOnClickListener {
             pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-    }
-    private fun imagePreProcess(bitmap: Bitmap){
-        Log.d("Image Pre-Processing", "Image Pre-Processing Started.")
-        val preProcessedBitmap = preProcessing.imagePreProcess(bitmap)
-        Log.d("Image Pre-Processing", "Image Pre-Processing Completed.")
-        displayImage(preProcessedBitmap)
-        Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
     private fun neuralNetProcess(bitmap: Bitmap){
         val bitmapResizeWidth = 1280

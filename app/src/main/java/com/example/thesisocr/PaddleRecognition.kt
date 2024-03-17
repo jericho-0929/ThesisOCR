@@ -34,7 +34,7 @@ internal class PaddleRecognition {
     }
     private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
         // Get number of cores present in Android device.
-        val numOfCoresToUse = Runtime.getRuntime().availableProcessors()
+        val numOfCoresToUse = Runtime.getRuntime().availableProcessors() - 2 // Leave 2 cores for the system.
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()

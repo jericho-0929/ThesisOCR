@@ -46,7 +46,7 @@ class PaddleDetector {
         return runModel(ortEnvironment, ortSession, bitmap)
     }
     private fun runModel(ortEnvironment: OrtEnvironment, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
-        val numOfCores = Runtime.getRuntime().availableProcessors() - 2 // Leave 2 cores for the system.
+        val numOfCores = 6 // Configured for an octa-core device.
         Log.d("PaddleDetector", "Number of cores for use: $numOfCores")
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height

@@ -34,7 +34,7 @@ internal class PaddleRecognition {
     }
     private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
         // Get number of cores present in Android device.
-        val numOfCoresToUse = Runtime.getRuntime().availableProcessors() - 2 // Leave 2 cores for the system.
+        val numOfCoresToUse = 6 // Configured for an octa-core device.
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()
@@ -107,7 +107,7 @@ internal class PaddleRecognition {
     private fun padWidthDimensions(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>> {
         // Width is the 4th dimension while height is the 3rd dimension.
         val batchSize = inputArray.size
-        var maxWidth = inputArray[0][0][0].size
+        var maxWidth = 800
         for (i in 0 until batchSize) {
             for (j in 0 until 3) {
                 for (k in 0 until 48) {

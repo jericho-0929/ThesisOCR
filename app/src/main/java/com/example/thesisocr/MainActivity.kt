@@ -2,7 +2,6 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.providers.NNAPIFlags
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -18,7 +17,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.thesisocr.databinding.ActivityMainBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
-import java.util.EnumSet
 
 class MainActivity : AppCompatActivity() {
     // Model Vocabulary from en_dict.txt raw resource file.
@@ -103,9 +101,9 @@ class MainActivity : AppCompatActivity() {
     private fun ortSessionConfigurations(): OrtSession.SessionOptions {
         val sessionOptions = OrtSession.SessionOptions()
         // Set NNAPI flags.
-        val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
+        //val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
         // Add NNAPI
-        sessionOptions.addNnapi(nnapiFlags)
+        //sessionOptions.addNnapi(nnapiFlags)
         // Execution Mode and Optimization Level
         sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
         sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)

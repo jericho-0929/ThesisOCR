@@ -4,17 +4,11 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
 import kotlin.time.measureTime
@@ -74,8 +68,9 @@ internal class PaddleRecognition {
             }
             // Add all strings to listOfStrings.
             listOfStrings.addAll(toAdd)
-            Log.d("PaddleRecognition", "Model run successful: $recognitionInferenceTime.")
+            Log.d("PaddleRecognition", "Processing time (inc. overhead): $recognitionInferenceTime.")
         }
+        Log.d("PaddleRecognition", "Inference completed.")
         // TODO: Implement operations to transfer recognitionOutput to listOfStrings.
         return TextResult(listOfStrings)
     }

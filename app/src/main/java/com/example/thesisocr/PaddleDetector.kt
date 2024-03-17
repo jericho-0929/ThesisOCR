@@ -10,7 +10,6 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
-import android.os.Environment
 import android.util.Log
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
@@ -20,10 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import org.opencv.android.Utils
-import org.opencv.core.Mat
-import org.opencv.core.Size
-import org.opencv.imgproc.Imgproc
 import java.io.FileOutputStream
 import java.util.Collections
 import kotlin.time.measureTime
@@ -78,15 +73,16 @@ class PaddleDetector {
             val totalInferenceTime = measureTime {
                 resultList = deferredList.awaitAll()
             }
-            Log.d("PaddleDetector", "Detection Inference Time: $totalInferenceTime")
+            Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
         }
+        Log.d("PaddleDetector", "Inference complete.")
         // Fix the output bitmaps by closing horizontal gaps.
         val fixedBitmapList = mutableListOf<Bitmap>()
         for (bitmap in resultList) {
             fixedBitmapList.add(convertToMonochrome(closeHorizontalGaps(bitmap)))
         }
-        // Stitch the output bitmaps together
-        val outputBitmap = stitchBitmapChunks(fixedBitmapList)
+        // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
+        val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = Bitmap.createScaledBitmap(

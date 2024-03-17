@@ -10,7 +10,6 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
-import android.os.Environment
 import android.util.Log
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
@@ -89,9 +88,9 @@ class PaddleDetector {
                 }
             }
             // Upsize the outputImageBitmap to the original size.
-            outputImageBitmap = Bitmap.createScaledBitmap(outputImageBitmap, bitmapWidth, bitmapHeight, true)
-            // Convert outputImageBitmap back to array.
-            val outputArray = convertImageToFloatArray(outputImageBitmap)
+            outputImageBitmap = Bitmap.createScaledBitmap(outputImageBitmap, bitmapWidth, bitmapHeight, false)
+            // Convert outputImageBitmap back to array after applying sectionRemoval.
+            val outputArray = convertImageToFloatArray(ImageProcessing().sectionRemoval(outputImageBitmap))
             // Create bounding boxes from outputArray.
             val boundingBoxes = createBoundingBoxes(outputArray, inputBitmap)
             Log.d("PaddleDetector", "Bounding boxes created.")

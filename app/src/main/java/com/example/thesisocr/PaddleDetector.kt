@@ -43,9 +43,6 @@ class PaddleDetector {
     )
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
     fun detect(bitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
-        val imageArray = convertImageToFloatArray(bitmap)
-        val inputTensor = OnnxTensor.createTensor(ortEnvironment, imageArray)
-        Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
         return runModel(ortEnvironment, ortSession, bitmap)
     }
     private fun runModel(ortEnvironment: OrtEnvironment, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
@@ -57,6 +54,7 @@ class PaddleDetector {
         val resizedBitmap = Bitmap.createScaledBitmap(
             inputBitmap, bitmapWidth / 2,
             bitmapHeight / 2, true)
+        Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the resizedBitmap into chunks.
         val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, numOfCores)
         val resultList: List<Bitmap>
@@ -115,6 +113,7 @@ class PaddleDetector {
     // Pass one chunk to the following function.
     private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Bitmap {
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, convertImageToFloatArray(inputBitmap))
+        Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
         val output = ortSession.run(Collections.singletonMap("x", inputTensor))
         // Return the output as a Bitmap.
         return output.use {

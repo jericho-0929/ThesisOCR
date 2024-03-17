@@ -45,7 +45,6 @@ internal class PaddleRecognition {
             Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
         // Pad the width dimensions to the maximum width.
         inputArray = padWidthDimensions(inputArray)
-        Log.d("PaddleRecognition", "Image Array Sizes: ${inputArray.size} x ${inputArray[0].size} x ${inputArray[0][0].size} x ${inputArray[0][0][0].size}")
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
         val inferenceChunks = splitIntoChunks(inputArray, numOfCoresToUse)
@@ -136,11 +135,10 @@ internal class PaddleRecognition {
     }
     // Coroutine helper functions
     private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> {
-        // Log chunk dimensions.
-        Log.d("PaddleRecognition", "Chunk dimensions: ${chunk.size} x ${chunk[0].size} x ${chunk[0][0].size} x ${chunk[0][0][0].size}")
         val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
+        Log.d("PaddleRecognition", "Input Tensor Info: ${inputTensor.info}")
         val output = ortSession.run(Collections.singletonMap("x", inputTensor))
         output.use {
             val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>

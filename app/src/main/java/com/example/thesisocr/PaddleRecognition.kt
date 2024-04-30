@@ -133,7 +133,7 @@ internal class PaddleRecognition {
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
         Log.d("PaddleRecognition", "Input Tensor Info: ${inputTensor.info}")
         val output = ortSession.run(Collections.singletonMap("x", inputTensor))
-        output.use {
+        return output.use {
             val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
             // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
             // NOTE: batchSize is variable in this case.
@@ -152,8 +152,8 @@ internal class PaddleRecognition {
                 listOfStrings.add(sequence.joinToString(""))
                 Log.d("PaddleRecognition", "Recognized text: $sequence")
             }
+            listOfStrings
         }
-        return listOfStrings
     }
     private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
         // Convert inputArray to a List datatype.

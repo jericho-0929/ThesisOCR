@@ -46,9 +46,9 @@ class PaddleDetector {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
-        val resizedBitmap = Bitmap.createScaledBitmap(
+        val resizedBitmap = ImageProcessing().rescaleBitmap(
             inputBitmap, bitmapWidth / 2,
-            bitmapHeight / 2, true)
+            bitmapHeight / 2)
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the resizedBitmap into chunks.
         val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
@@ -78,15 +78,14 @@ class PaddleDetector {
         val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
-        val resizedOutputBitmap = Bitmap.createScaledBitmap(
-            outputBitmap, bitmapWidth, bitmapHeight, false)
+        val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
+            outputBitmap, bitmapWidth, bitmapHeight)
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
         return Result(renderedBitmap, boundingBoxList)
     }
     // Multiprocessing (coroutine) helper functions.
-
     // Split inputBitmap into sequential chunks.
     private fun splitBitmapIntoChunks(inputBitmap: Bitmap, numOfChunks: Int): List<Bitmap> {
         // Split the inputBitmap into chunks.

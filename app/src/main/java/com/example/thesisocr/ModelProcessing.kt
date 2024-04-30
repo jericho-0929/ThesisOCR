@@ -18,6 +18,7 @@ class ModelProcessing(private val resources: Resources) {
         val resizeWidth = 1280
         val resizeHeight = 960
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
         ortSession.close()
         val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)

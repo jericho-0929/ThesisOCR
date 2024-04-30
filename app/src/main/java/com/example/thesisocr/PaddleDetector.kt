@@ -42,12 +42,7 @@ class PaddleDetector {
         var boundingBoxList: List<BoundingBox>
     )
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
-    fun detect(bitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result? {
-        return runModel(ortEnvironment, ortSession, bitmap)
-    }
-    private fun runModel(ortEnvironment: OrtEnvironment, ortSession: OrtSession, inputBitmap: Bitmap): Result? {
-        val numOfCores = Runtime.getRuntime().availableProcessors() - 2 // Leave 2 cores for the system.
-        Log.d("PaddleDetector", "Number of cores for use: $numOfCores")
+    fun detect(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
@@ -56,7 +51,7 @@ class PaddleDetector {
             bitmapHeight / 2, true)
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the resizedBitmap into chunks.
-        val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, numOfCores)
+        val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
         val resultList: List<Bitmap>
         Log.d("PaddleDetector", "Starting detection inference.")
         // Process each chunk in parallel using async().
@@ -91,6 +86,7 @@ class PaddleDetector {
         return Result(renderedBitmap, boundingBoxList)
     }
     // Multiprocessing (coroutine) helper functions.
+
     // Split inputBitmap into sequential chunks.
     private fun splitBitmapIntoChunks(inputBitmap: Bitmap, numOfChunks: Int): List<Bitmap> {
         // Split the inputBitmap into chunks.

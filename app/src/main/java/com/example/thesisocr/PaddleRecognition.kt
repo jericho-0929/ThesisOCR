@@ -28,13 +28,6 @@ internal class PaddleRecognition {
         var listOfStrings: MutableList<String>,
     )
     fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult? {
-        Log.d("PaddleRecognition", "Recognizing text.")
-        Log.d("PaddleRecognition", "Batch size: ${listOfInputBitmaps.size}")
-        return runModel(listOfInputBitmaps, ortSession, ortEnvironment, modelVocab)
-    }
-    private fun runModel(listOfInputBitmaps: List<Bitmap>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): TextResult? {
-        // Get number of cores present in Android device.
-        val numOfCoresToUse = Runtime.getRuntime().availableProcessors() - 2 // Leave 2 cores for the system.
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()
@@ -47,7 +40,7 @@ internal class PaddleRecognition {
         inputArray = padWidthDimensions(inputArray)
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, numOfCoresToUse)
+        val inferenceChunks = splitIntoChunks(inputArray, 4)
         val toAdd: List<String>
         Log.d("PaddleRecognition", "Starting recognition inference.")
         // Process each chunk in parallel using async().

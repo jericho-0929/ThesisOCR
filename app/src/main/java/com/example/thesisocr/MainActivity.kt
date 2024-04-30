@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private val imageProcessing = ImageProcessing()
     private val textRecognition = PaddleRecognition()
     private val textDetection = PaddleDetector()
+    private val modelProcessing = ModelProcessing(resources)
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         displayImageFromUri(uri)
         if (uri != null){
@@ -41,7 +42,8 @@ class MainActivity : AppCompatActivity() {
             debugGetModelInfo(1)
             debugGetModelInfo(2)
             // imagePreProcess(bitmap)
-            neuralNetProcess(bitmap)
+            // neuralNetProcess(bitmap)
+            modelProcessing.processImage(bitmap)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -71,7 +73,7 @@ class MainActivity : AppCompatActivity() {
     private fun neuralNetProcess(bitmap: Bitmap){
         val bitmapResizeWidth = 1280
         val bitmapResizeHeight = 960
-        val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
+        val rescaledBitmap = imageProcessing.rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
         Log.d("Neural Network Processing", "Neural Network Processing Started.")
         val ortSessionOptions = ortSessionConfigurations()
         // Run detection model.
@@ -79,18 +81,16 @@ class MainActivity : AppCompatActivity() {
         val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
         ortSession.endProfiling()
         ortSession.close()
-        if (detectionResult != null) {
-            // Display image to UI.
-            displayImage(detectionResult.outputBitmap)
-            // Crop image to bounding boxes.
-            val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
-            // Run recognition model.
-            ortSession = createOrtSession(selectModel(2), ortSessionOptions)
-            val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
-            ortSession.endProfiling()
-            ortSession.close()
-            ortSessionOptions.close()
-        }
+        // Display image to UI.
+        displayImage(detectionResult.outputBitmap)
+        // Crop image to bounding boxes.
+        val recognitionInputBitmapList = cropAndProcessBitmapList(imageProcessing.rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
+        // Run recognition model.
+        ortSession = createOrtSession(selectModel(2), ortSessionOptions)
+        val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
+        ortSession.endProfiling()
+        ortSession.close()
+        ortSessionOptions.close()
         Log.d("Neural Network Processing", "Neural Network Processing Completed.")
         Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
     }
@@ -133,9 +133,6 @@ class MainActivity : AppCompatActivity() {
     private fun displayImageFromUri(imageUri: Uri?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageURI(imageUri)
-    }
-    private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
     }
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {

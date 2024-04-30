@@ -8,6 +8,10 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 
 class ImageProcessing {
+    // General image processing functions.
+    fun rescaleBitmap(inputBitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
+        return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, false)
+    }
     // Detection pre-processing functions.
     // Blacken out 25% of the image's top and 10% of the image's right sections.
     fun sectionRemoval(inputBitmap: Bitmap): Bitmap {

@@ -31,6 +31,7 @@ class ModelProcessing(private val resources: Resources) {
         val warmupBitmap = Bitmap.createBitmap(1280, 960, Bitmap.Config.ARGB_8888)
         // Only run detection model.
         PaddleDetector().detect(warmupBitmap, ortEnv, ortSession)
+        // No idea why this works.
     }
     fun getModelInfo(modelSelect: Int){
         debugGetModelInfo(modelSelect)

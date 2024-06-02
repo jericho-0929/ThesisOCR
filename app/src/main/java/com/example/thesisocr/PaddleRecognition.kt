@@ -41,26 +41,28 @@ internal class PaddleRecognition {
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
         val inferenceChunks = splitIntoChunks(inputArray, 4)
-        val toAdd: List<String>
+        val toAdd: List<OrtSession.Result>
         Log.d("PaddleRecognition", "Starting recognition inference.")
         // Process each chunk in parallel using async().
         runBlocking {
-            val deferredList = mutableListOf<Deferred<List<String>>>()
+            val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
             for (chunk in inferenceChunks) {
                 // Launch a coroutine for each chunk.
                 val deferred = async(Dispatchers.Default) {
-                    performInference(chunk, ortSession, ortEnvironment, modelVocab)
+                    performInference(chunk, ortSession, ortEnvironment)
                 }
                 // Add the deferred to the list.
                 deferredList.add(deferred)
             }
             // Wait for all coroutines to finish and collect their results.
-            val recognitionInferenceTime = measureTime {
-                toAdd = deferredList.awaitAll().flatten()
+            val parallelRuntime = measureTime {
+                toAdd = deferredList.awaitAll()
             }
-            // Add all strings to listOfStrings.
-            listOfStrings.addAll(toAdd)
-            Log.d("PaddleRecognition", "Processing time (inc. overhead): $recognitionInferenceTime.")
+            Log.d("PaddleRecognition", "Parallel Runtime: $parallelRuntime")
+        }
+        // Process the raw output.
+        for (result in toAdd) {
+            recognitionOutput.add(processRawOutput(result, modelVocab))
         }
         Log.d("PaddleRecognition", "Inference completed.")
         // TODO: Implement operations to transfer recognitionOutput to listOfStrings.
@@ -127,33 +129,42 @@ internal class PaddleRecognition {
         return paddedArray
     }
     // Coroutine helper functions
-    private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): List<String> {
+    private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): OrtSession.Result {
         val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
         Log.d("PaddleRecognition", "Input Tensor Info: ${inputTensor.info}")
-        val output = ortSession.run(Collections.singletonMap("x", inputTensor))
-        return output.use {
-            val rawOutput = output?.get(0)?.value as Array<Array<FloatArray>>
-            // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
-            // NOTE: batchSize is variable in this case.
-            for (i in chunk.indices) {
-                val sequenceLength = rawOutput[i].size
-                val sequence = mutableListOf<String>()
-                for (j in 0 until sequenceLength) {
-                    val maxIndex = rawOutput[i][j].indices.maxByOrNull { rawOutput[i][j][it] } ?: -1
-                    if (maxIndex in 1..94 && rawOutput[i][j][maxIndex] > 0.75f) {
-                        sequence.add(modelVocab[maxIndex - 1])
-                    } else {
-                        // TODO: Implement CTC loss handling.
-                        // sequence.add(" ")
-                    }
-                }
-                listOfStrings.add(sequence.joinToString(""))
-                Log.d("PaddleRecognition", "Recognized text: $sequence")
-            }
-            listOfStrings
+        var output: OrtSession.Result
+        val modelRuntime = measureTime {
+            output = ortSession.run(Collections.singletonMap("x", inputTensor))
         }
+        Log.d("PaddleRecognition", "Model Runtime: $modelRuntime")
+        return output
+    }
+    private fun processRawOutput(rawOutput: OrtSession.Result, modelVocab: List<String>): List<String> {
+        val listOfStrings = mutableListOf<String>()
+        val rawOutputArray = rawOutput.use {
+            rawOutput.get(0).value as Array<Array<FloatArray>>
+        }
+        // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
+        // NOTE: batchSize is variable in this case.
+        for (i in rawOutputArray.indices) {
+            val sequenceLength = rawOutputArray[i].size
+            val sequence = mutableListOf<String>()
+            for (j in 0 until sequenceLength) {
+                val maxIndex =
+                    rawOutputArray[i][j].indices.maxByOrNull { rawOutputArray[i][j][it] } ?: -1
+                if (maxIndex in 1..94 && rawOutputArray[i][j][maxIndex] > 0.75f) {
+                    sequence.add(modelVocab[maxIndex - 1])
+                } else {
+                    // TODO: Implement CTC loss handling.
+                    // sequence.add(" ")
+                }
+            }
+            listOfStrings.add(sequence.joinToString(""))
+            Log.d("PaddleRecognition", "Recognized text: $sequence")
+        }
+        return listOfStrings
     }
     private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
         // Convert inputArray to a List datatype.

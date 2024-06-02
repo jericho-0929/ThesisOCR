@@ -50,32 +50,11 @@ class PaddleDetector {
             inputBitmap, bitmapWidth / 2,
             bitmapHeight / 2)
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
-        // Split the resizedBitmap into chunks.
-        val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
-        val resultList: List<Bitmap>
         Log.d("PaddleDetector", "Starting detection inference.")
-        // Process each chunk in parallel using async().
-        runBlocking {
-            val deferredList = mutableListOf<Deferred<Bitmap>>()
-            for (chunk in inferenceChunks) {
-                val deferred = async(Dispatchers.Default) {
-                    runModel(chunk, ortEnvironment, ortSession)
-                }
-                deferredList.add(deferred)
-            }
-            val totalInferenceTime = measureTime {
-                resultList = deferredList.awaitAll()
-            }
-            Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
-        }
-        Log.d("PaddleDetector", "Inference complete.")
-        // Fix the output bitmaps by closing horizontal gaps.
-        val fixedBitmapList = mutableListOf<Bitmap>()
-        for (bitmap in resultList) {
-            fixedBitmapList.add(convertToMonochrome(closeHorizontalGaps(bitmap)))
-        }
-        // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
-        val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
+        // Process inputBitmap with the model.
+        var outputBitmap = runModel(resizedBitmap, ortEnvironment, ortSession)
+        // Close horizontal gaps in the outputBitmap.
+        outputBitmap = closeHorizontalGaps(outputBitmap)
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
@@ -85,31 +64,16 @@ class PaddleDetector {
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
         return Result(renderedBitmap, boundingBoxList)
     }
-    // Multiprocessing (coroutine) helper functions.
-    // Split inputBitmap into sequential chunks.
-    private fun splitBitmapIntoChunks(inputBitmap: Bitmap, numOfChunks: Int): List<Bitmap> {
-        // Split the inputBitmap into chunks.
-        val chunkList = mutableListOf<Bitmap>()
-        // Ensure that the resulting bitmaps' width and height are in the 4:3 aspect ratio.
-        return if (inputBitmap.width % numOfChunks != 0) {
-            // Reduce numOfChunks by one and check again.
-            splitBitmapIntoChunks(inputBitmap, numOfChunks - 1)
-        } else {
-            Log.d("PaddleDetector", "Number of chunks: $numOfChunks")
-            val chunkWidth = inputBitmap.width / numOfChunks
-            val chunkHeight = inputBitmap.height
-            for (i in 0 until numOfChunks) {
-                val chunk = Bitmap.createBitmap(inputBitmap, i * chunkWidth, 0, chunkWidth, chunkHeight)
-                chunkList.add(chunk)
-            }
-            chunkList
-        }
-    }
+
     // Pass one chunk to the following function.
     private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Bitmap {
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, convertImageToFloatArray(inputBitmap))
         Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
-        val output = ortSession.run(Collections.singletonMap("x", inputTensor))
+        var output: OrtSession.Result?
+        val runTime = measureTime {
+            output = ortSession.run(Collections.singletonMap("x", inputTensor))
+        }
+        Log.d("PaddleDetector", "Inference time: $runTime")
         // Return the output as a Bitmap.
         return output.use {
             // Feature map from the model's output.
@@ -125,16 +89,6 @@ class PaddleDetector {
             }
             outputBitmap
         }
-    }
-    // Stitch the output bitmaps.
-    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
-        val firstBitmap = bitmapList[0]
-        val outputBitmap = Bitmap.createBitmap(firstBitmap.width * bitmapList.size, firstBitmap.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(outputBitmap)
-        for (i in bitmapList.indices) {
-            canvas.drawBitmap(bitmapList[i], i * firstBitmap.width.toFloat(), 0f, null)
-        }
-        return outputBitmap
     }
     // Close horizontal gaps by extending non-black pixels closest to bitmap edges.
     private fun closeHorizontalGaps(inputBitmap: Bitmap): Bitmap {
@@ -166,7 +120,6 @@ class PaddleDetector {
         return outputBitmap
     }
     // Post-processing helper functions.
-
     private fun createBoundingBoxes(rawOutput: Array<Array<Array<FloatArray>>>, inputBitmap: Bitmap): List<BoundingBox> {
         // Create bounding boxes from the raw output of the model.
         val boundingBoxes = mutableListOf<BoundingBox>()

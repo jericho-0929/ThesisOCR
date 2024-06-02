@@ -41,16 +41,25 @@ android {
 }
 
 dependencies {
-
+    // CameraX dependencies
+    implementation("androidx.camera:camera-camera2:1.3.3")
+    implementation("androidx.camera:camera-lifecycle:1.3.3")
+    implementation("androidx.camera:camera-view:1.0.0-alpha34")
+    implementation("androidx.camera:camera-extensions:1.0.0-alpha34")
+    implementation("androidx.camera:camera-core:1.3.3")
+    // AndroidX
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
+    // PyTorch and Tensorflow Lite
     implementation("org.pytorch:pytorch_android:1.10.0")
     implementation("org.tensorflow:tensorflow-lite-task-vision-play-services:0.4.2")
     implementation("com.google.android.gms:play-services-tflite-gpu:16.1.0")
+    // ONNX
     implementation("com.microsoft.onnxruntime:onnxruntime-android:latest.release")
     implementation("com.microsoft.onnxruntime:onnxruntime-extensions-android:latest.release")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.core:core-ktx:1.12.0")
+    // OpenCV
     implementation(project(":opencv"))
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

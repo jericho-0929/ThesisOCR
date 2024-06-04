@@ -52,43 +52,39 @@ class PaddleDetector {
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         Log.d("PaddleDetector", "Starting detection inference.")
         // Process inputBitmap with the model.
-        var outputBitmap = runModel(resizedBitmap, ortEnvironment, ortSession)
-        // Close horizontal gaps in the outputBitmap.
+        return processRawOutput(runModel(resizedBitmap, ortEnvironment, ortSession), inputBitmap)
+    }
+    private fun processRawOutput(result: OrtSession.Result, inputBitmap: Bitmap): Result {
+        // Process the raw output of the model.
+        val rawOutput = result.get(0).value as Array<Array<Array<FloatArray>>>
+        // Convert rawOutput to a Bitmap
+        var outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+        val multiplier = -255.0f * 2.0f
+        for (i in 0 until inputBitmap.width) {
+            for (j in 0 until inputBitmap.height) {
+                val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
+                outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
+            }
+        }
+        // Create bounding boxes from the raw output.
         outputBitmap = closeHorizontalGaps(outputBitmap)
-        // Creation of bounding boxes from the outputBitmap.
-        // Resize the outputBitmap to the original inputBitmap's size.
-        val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
-            outputBitmap, bitmapWidth, bitmapHeight)
-        val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
-        // Render bounding boxes on the inputBitmap.
+        outputBitmap = ImageProcessing().rescaleBitmap(
+            outputBitmap, inputBitmap.width, inputBitmap.height)
+        val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
         return Result(renderedBitmap, boundingBoxList)
     }
-
     // Pass one chunk to the following function.
-    private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Bitmap {
+    private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): OrtSession.Result {
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, convertImageToFloatArray(inputBitmap))
         Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
-        var output: OrtSession.Result?
+        var output: OrtSession.Result
         val runTime = measureTime {
             output = ortSession.run(Collections.singletonMap("x", inputTensor))
         }
         Log.d("PaddleDetector", "Inference time: $runTime")
         // Return the output as a Bitmap.
-        return output.use {
-            // Feature map from the model's output.
-            val rawOutput = output?.get(0)?.value as Array<Array<Array<FloatArray>>>
-            // Convert rawOutput to a Bitmap
-            val outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-            val multiplier = -255.0f * 2.0f
-            for (i in 0 until inputBitmap.width) {
-                for (j in 0 until inputBitmap.height) {
-                    val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
-                    outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
-                }
-            }
-            outputBitmap
-        }
+        return output
     }
     // Close horizontal gaps by extending non-black pixels closest to bitmap edges.
     private fun closeHorizontalGaps(inputBitmap: Bitmap): Bitmap {

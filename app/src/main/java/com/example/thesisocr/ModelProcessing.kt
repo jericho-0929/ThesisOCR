@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.os.Environment
 import android.util.Log
+import kotlinx.coroutines.runBlocking
 import java.util.EnumSet
 
 class ModelProcessing(private val resources: Resources) {
@@ -17,22 +18,31 @@ class ModelProcessing(private val resources: Resources) {
     fun processImage(inputBitmap: Bitmap) {
         val resizeWidth = 1280
         val resizeHeight = 960
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        val resizedBitmap = ImageProcessing().processImageForDetection(ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight))
         val listOfBitmaps = ImageProcessing().sliceBitmap(resizedBitmap)
-        ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-        val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
-        ortSession.close()
-        val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
-        ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
-        val recognitionResult = PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
-        ortSession.close()
+        // Infer each item in parallel.
+        runBlocking {
+            for (element in listOfBitmaps) {
+                ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+                val detectionResult = PaddleDetector().detect(element, ortEnv, ortSession)
+                ortSession.close()
+                val croppedBitmapList = cropAndProcessBitmapList(detectionResult.outputBitmap, detectionResult)
+                ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
+                val recognitionResult = PaddleRecognition().recognize(croppedBitmapList, ortEnv, ortSession, modelVocab)
+                ortSession.close()
+                Log.d("Recognition Result", "Result: ${recognitionResult.listOfStrings}")
+            }
+        }
     }
     fun warmupThreads(){
+        Log.d("Warm-up", "Warming up threads.")
         // Empty bitmaps for warm-up.
         val warmupBitmap = Bitmap.createBitmap(1280, 960, Bitmap.Config.ARGB_8888)
         // Only run detection model.
         PaddleDetector().detect(warmupBitmap, ortEnv, ortSession)
         // No idea why this works.
+        ortSession.close()
+        Log.d("Warm-up", "Threads warmed up.")
     }
     fun getModelInfo(modelSelect: Int){
         debugGetModelInfo(modelSelect)

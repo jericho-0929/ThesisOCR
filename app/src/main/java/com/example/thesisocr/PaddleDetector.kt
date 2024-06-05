@@ -46,13 +46,12 @@ class PaddleDetector {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
-        val resizedBitmap = ImageProcessing().rescaleBitmap(
-            inputBitmap, bitmapWidth / 2,
-            bitmapHeight / 2)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, bitmapWidth / 2, bitmapHeight / 2)
+        Log.d("PaddleDetector", "Input Bitmap: ${inputBitmap.width} x ${inputBitmap.height}")
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         Log.d("PaddleDetector", "Starting detection inference.")
         // Process inputBitmap with the model.
-        return processRawOutput(runModel(resizedBitmap, ortEnvironment, ortSession), inputBitmap)
+        return processRawOutput(runModel(resizedBitmap, ortEnvironment, ortSession), resizedBitmap)
     }
     private fun processRawOutput(result: OrtSession.Result, inputBitmap: Bitmap): Result {
         // Process the raw output of the model.
@@ -60,8 +59,8 @@ class PaddleDetector {
         // Convert rawOutput to a Bitmap
         var outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         val multiplier = -255.0f * 2.0f
-        for (i in 0 until inputBitmap.width) {
-            for (j in 0 until inputBitmap.height) {
+        for (i in 0 until outputBitmap.width) {
+            for (j in 0 until outputBitmap.height) {
                 val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
                 outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
             }
@@ -69,9 +68,9 @@ class PaddleDetector {
         // Create bounding boxes from the raw output.
         outputBitmap = closeHorizontalGaps(outputBitmap)
         outputBitmap = ImageProcessing().rescaleBitmap(
-            outputBitmap, inputBitmap.width, inputBitmap.height)
+            outputBitmap, inputBitmap.width * 2, inputBitmap.height * 2)
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
-        val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
+        val renderedBitmap = renderBoundingBoxes(ImageProcessing().rescaleBitmap(inputBitmap,inputBitmap.width * 2, inputBitmap.height * 2), boundingBoxList)
         return Result(renderedBitmap, boundingBoxList)
     }
     // Pass one chunk to the following function.
@@ -206,7 +205,7 @@ class PaddleDetector {
         return result
     }
 
-    fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<PaddleDetector.BoundingBox>): List<Bitmap> {
+    fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<BoundingBox>): List<Bitmap> {
         // BoundingBox variables: x, y, width, height
         val croppedBitmapList = mutableListOf<Bitmap>()
         for (boundingBox in boundingBoxList){

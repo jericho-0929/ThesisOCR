@@ -12,14 +12,14 @@ class ImageProcessing {
     fun rescaleBitmap(inputBitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, false)
     }
-    // Slice bitmap into four vertical sections.
+    // Slice bitmap into four horizontal sections.
     fun sliceBitmap(inputBitmap: Bitmap): List<Bitmap> {
         val width = inputBitmap.width
         val height = inputBitmap.height
-        val sectionWidth = width / 4
+        val sectionHeight = height / 3
         val sectionList = mutableListOf<Bitmap>()
-        for (i in 0 until 4) {
-            val sectionBitmap = Bitmap.createBitmap(inputBitmap, i * sectionWidth, 0, sectionWidth, height)
+        for (i in 0 until 3) {
+            val sectionBitmap = Bitmap.createBitmap(inputBitmap, 0, i * sectionHeight, width, sectionHeight)
             sectionList.add(sectionBitmap)
         }
         return sectionList
@@ -28,7 +28,9 @@ class ImageProcessing {
     // Blacken out 25% of the image's top and 10% of the image's right sections.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val resultBitmap: Bitmap = sectionRemoval(inputBitmap)
-        return convertToBitmap((convertToGrayscaleMat(resultBitmap)))
+        val sharpenedMat = imageSharpening(convertToGrayscaleMat(resultBitmap))
+        val thresholdMat = imageThresholding(sharpenedMat)
+        return convertToBitmap(thresholdMat)
     }
     fun sectionRemoval(inputBitmap: Bitmap): Bitmap {
         // Channel count is 4.

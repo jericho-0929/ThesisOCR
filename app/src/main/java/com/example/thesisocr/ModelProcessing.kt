@@ -27,10 +27,12 @@ class ModelProcessing(private val resources: Resources) {
         ortSession.close()
     }
     fun warmupThreads(){
+        Log.d("Warm-up", "Warming up threads.")
         // Empty bitmaps for warm-up.
         val warmupBitmap = Bitmap.createBitmap(1280, 960, Bitmap.Config.ARGB_8888)
         // Only run detection model.
         PaddleDetector().detect(warmupBitmap, ortEnv, ortSession)
+        Log.d("Warm-up", "Threads warmed up.")
     }
     fun getModelInfo(modelSelect: Int){
         debugGetModelInfo(modelSelect)

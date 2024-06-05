@@ -52,11 +52,11 @@ class PaddleDetector {
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the resizedBitmap into chunks.
         val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
-        val resultList: List<Bitmap>
+        val resultList: List<OrtSession.Result>
         Log.d("PaddleDetector", "Starting detection inference.")
         // Process each chunk in parallel using async().
         runBlocking {
-            val deferredList = mutableListOf<Deferred<Bitmap>>()
+            val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
             for (chunk in inferenceChunks) {
                 val deferred = async(Dispatchers.Default) {
                     runModel(chunk, ortEnvironment, ortSession)
@@ -71,8 +71,8 @@ class PaddleDetector {
         Log.d("PaddleDetector", "Inference complete.")
         // Fix the output bitmaps by closing horizontal gaps.
         val fixedBitmapList = mutableListOf<Bitmap>()
-        for (bitmap in resultList) {
-            fixedBitmapList.add(convertToMonochrome(closeHorizontalGaps(bitmap)))
+        for (i in resultList.indices) {
+            fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap))
         }
         // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
         val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
@@ -106,25 +106,30 @@ class PaddleDetector {
         }
     }
     // Pass one chunk to the following function.
-    private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Bitmap {
+    private fun runModel(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): OrtSession.Result {
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, convertImageToFloatArray(inputBitmap))
         Log.d("PaddleDetector", "Input Tensor: ${inputTensor.info}")
-        val output = ortSession.run(Collections.singletonMap("x", inputTensor))
-        // Return the output as a Bitmap.
-        return output.use {
-            // Feature map from the model's output.
-            val rawOutput = output?.get(0)?.value as Array<Array<Array<FloatArray>>>
-            // Convert rawOutput to a Bitmap
-            val outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-            val multiplier = -255.0f * 2.0f
-            for (i in 0 until inputBitmap.width) {
-                for (j in 0 until inputBitmap.height) {
-                    val pixelIntensity = (rawOutput[0][0][i][j] * multiplier).toInt()
-                    outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
-                }
-            }
-            outputBitmap
+        var output: OrtSession.Result
+        val inferenceTime = measureTime {
+            output = ortSession.run(Collections.singletonMap("x", inputTensor))
         }
+        Log.d("PaddleDetector", "Inference time: $inferenceTime")
+        // Return the output as a Bitmap.
+        return output
+    }
+    private fun processRawOutput(rawOutput: OrtSession.Result, inputBitmap: Bitmap): Result {
+        // Feature map from the model's output.
+        val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
+        // Convert rawOutput to a Bitmap
+        val outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+        val multiplier = -255.0f * 2.0f
+        for (i in 0 until inputBitmap.width) {
+            for (j in 0 until inputBitmap.height) {
+                val pixelIntensity = (outputArray[0][0][i][j] * multiplier).toInt()
+                outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
+            }
+        }
+        return Result(outputBitmap, emptyList())
     }
     // Stitch the output bitmaps.
     private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {

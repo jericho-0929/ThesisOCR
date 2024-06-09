@@ -23,7 +23,7 @@ import kotlin.time.measureTime
  */
 
 // TODO: IMPLEMENT COROUTINE FOR MODEL INFERENCE.
-internal class PaddleRecognition {
+class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,
     )
@@ -40,7 +40,7 @@ internal class PaddleRecognition {
         inputArray = padWidthDimensions(inputArray)
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, 4)
+        val inferenceChunks = splitIntoChunks(inputArray)
         val toAdd: List<OrtSession.Result>
         Log.d("PaddleRecognition", "Starting recognition inference.")
         // Process each chunk in parallel using async().
@@ -163,11 +163,11 @@ internal class PaddleRecognition {
         }
         return listOfStrings
     }
-    private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
+    private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>): List<List<Array<Array<FloatArray>>>> {
         // Convert inputArray to a List datatype.
         val inputList = inputArray.toList()
-        // Split inputList into four parts.
-        val chunkSize = inputList.size / numOfChunks
+        // Split inputList into four parts regardless of the batch size.
+        val chunkSize = (inputList.size + 3) / 4
         return inputList.chunked(chunkSize)
     }
     // Debugging functions

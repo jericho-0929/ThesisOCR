@@ -2,11 +2,9 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.providers.NNAPIFlags
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
@@ -18,7 +16,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.thesisocr.databinding.ActivityMainBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
-import java.util.EnumSet
 
 class MainActivity : AppCompatActivity() {
     // Model Vocabulary from en_dict.txt raw resource file.
@@ -31,16 +28,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
     private lateinit var modelProcessing: ModelProcessing
-    private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        displayImageFromUri(uri)
+    private lateinit var modelResults: ModelProcessing.ModelResults
+    private val pickMedia = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
             Log.d("Photo Picker", "Photo selected: $uri")
-            modelProcessing.processImage(bitmap)
+            modelResults = modelProcessing.processImage(bitmap)
+            displayImage(modelResults.detectionResult.outputBitmap)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
         OpenCVLoader.initLocal()
@@ -63,7 +62,8 @@ class MainActivity : AppCompatActivity() {
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         imageView = findViewById(R.id.imageView)
         btnSelectImage.setOnClickListener {
-            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            val mimeType = "image/*"
+            pickMedia.launch(mimeType)
         }
     }
     private fun displayImage(bitmap: Bitmap?) {

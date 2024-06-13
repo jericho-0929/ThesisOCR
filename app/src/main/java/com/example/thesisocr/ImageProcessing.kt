@@ -15,8 +15,10 @@ class ImageProcessing {
     // Detection pre-processing functions.
     // Blacken out 25% of the image's top and 10% of the image's right sections.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
-        val resultBitmap: Bitmap = sectionRemoval(inputBitmap)
-        return convertToBitmap((convertToGrayscaleMat(resultBitmap)))
+        val inputMat = convertToGrayscaleMat(inputBitmap)
+        val blurredBitmap = imageBlur(inputMat)
+        val sharpenedBitmap = imageSharpening(blurredBitmap)
+        return convertToBitmap(sharpenedBitmap)
     }
     fun sectionRemoval(inputBitmap: Bitmap): Bitmap {
         // Channel count is 4.
@@ -44,8 +46,7 @@ class ImageProcessing {
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
         val grayMat = convertToGrayscaleMat(inputBitmap)
         val equalizedMat = histogramEqualization(grayMat)
-        val blurredMat = imageBlur(equalizedMat)
-        val sharpenedMat = imageSharpening(blurredMat)
+        val sharpenedMat = imageSharpening(equalizedMat)
         val thresholdMat = imageThresholding(sharpenedMat)
         return convertToBitmap(thresholdMat)
     }
@@ -64,6 +65,7 @@ class ImageProcessing {
     }
     private fun imageBlur(inputMat: Mat): Mat {
         val blurredMat = Mat()
+        // Imgproc.medianBlur(inputMat,blurredMat,5)
         Imgproc.GaussianBlur(inputMat, blurredMat, Size(5.0, 5.0), 0.0)
         return blurredMat
     }

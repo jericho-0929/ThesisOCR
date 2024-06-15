@@ -21,13 +21,11 @@ import kotlin.time.measureTime
  * 26 uppercase + 26 lowercase + 10 digits + 33 special + 1 space + 1 CTC loss = 97 classes
  * Refer to the en_dict.txt file found in this project's raw folder.
  */
-
-// TODO: IMPLEMENT COROUTINE FOR MODEL INFERENCE.
-internal class PaddleRecognition {
+class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,
     )
-    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult? {
+    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult {
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()

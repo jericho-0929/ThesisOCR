@@ -31,12 +31,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var imageView: ImageView? = null
     private lateinit var modelProcessing: ModelProcessing
-    private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        displayImageFromUri(uri)
+    private val pickMedia = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
             Log.d("Photo Picker", "Photo selected: $uri")
-            modelProcessing.processImage(bitmap)
+            val modelResults = modelProcessing.processImage(bitmap)
+            displayImage(modelResults.detectionResult.outputBitmap)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -63,7 +63,8 @@ class MainActivity : AppCompatActivity() {
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         imageView = findViewById(R.id.imageView)
         btnSelectImage.setOnClickListener {
-            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            val mimeType = "image/*"
+            pickMedia.launch(mimeType)
         }
     }
     private fun displayImage(bitmap: Bitmap?) {

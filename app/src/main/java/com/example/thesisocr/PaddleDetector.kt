@@ -45,37 +45,17 @@ class PaddleDetector {
     fun detect(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
+        // Perform section removal.
         // Resize the inputBitmap to the model's input size.
-        val resizedBitmap = ImageProcessing().rescaleBitmap(
-            inputBitmap, bitmapWidth / 2,
-            bitmapHeight / 2)
+        val resizedBitmap = ImageProcessing().sectionRemoval(
+            ImageProcessing().rescaleBitmap(
+                inputBitmap, bitmapWidth / 2, bitmapHeight / 2
+            )
+        )
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
-        // Split the resizedBitmap into chunks.
-        val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
-        val resultList: List<OrtSession.Result>
-        Log.d("PaddleDetector", "Starting detection inference.")
-        // Process each chunk in parallel using async().
-        runBlocking {
-            val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
-            for (chunk in inferenceChunks) {
-                val deferred = async(Dispatchers.Default) {
-                    runModel(chunk, ortEnvironment, ortSession)
-                }
-                deferredList.add(deferred)
-            }
-            val totalInferenceTime = measureTime {
-                resultList = deferredList.awaitAll()
-            }
-            Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
-        }
+        // Run detection model.
+        val outputBitmap = processRawOutput(runModel(resizedBitmap, ortEnvironment, ortSession),resizedBitmap).outputBitmap
         Log.d("PaddleDetector", "Inference complete.")
-        // Fix the output bitmaps by closing horizontal gaps.
-        val fixedBitmapList = mutableListOf<Bitmap>()
-        for (i in resultList.indices) {
-            fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap))
-        }
-        // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
-        val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().rescaleBitmap(

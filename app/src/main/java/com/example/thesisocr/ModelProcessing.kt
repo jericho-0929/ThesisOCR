@@ -13,8 +13,11 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-
-    fun processImage(inputBitmap: Bitmap) {
+    data class ModelResults (
+        var detectionResult: PaddleDetector.Result,
+        var recognitionResult: PaddleRecognition.TextResult
+    )
+    fun processImage(inputBitmap: Bitmap): ModelResults {
         val resizeWidth = 1280
         val resizeHeight = 960
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
@@ -25,7 +28,9 @@ class ModelProcessing(private val resources: Resources) {
         ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
         val recognitionResult = PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
         ortSession.close()
+        return ModelResults(detectionResult, recognitionResult)
     }
+    // TODO: Modify to account for PaddleDetector() being sequential.
     fun warmupThreads(){
         Log.d("Warm-up", "Warming up threads.")
         // Empty bitmaps for warm-up.

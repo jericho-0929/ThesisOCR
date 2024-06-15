@@ -10,7 +10,6 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
-import android.media.Image
 import android.util.Log
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
@@ -52,8 +51,7 @@ class PaddleDetector {
             bitmapHeight / 2)
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the resizedBitmap into chunks.
-        val bitmapList = splitBitmapIntoChunks(ImageProcessing().processImageForDetection(resizedBitmap), 4)
-        val inferenceChunks = removeEvenBitmaps(bitmapList)
+        val inferenceChunks = splitBitmapIntoChunks(resizedBitmap, 4)
         val resultList: List<OrtSession.Result>
         Log.d("PaddleDetector", "Starting detection inference.")
         // Process each chunk in parallel using async().
@@ -72,18 +70,12 @@ class PaddleDetector {
         }
         Log.d("PaddleDetector", "Inference complete.")
         // Fix the output bitmaps by closing horizontal gaps.
-        /*
         val fixedBitmapList = mutableListOf<Bitmap>()
         for (i in resultList.indices) {
             fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap))
         }
         // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
         val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
-         */
-        // Process the raw output and create bounding boxes.
-        val outputBitmap = processRawOutput(resultList[0], inferenceChunks[0]).outputBitmap
-        // Modify width of the bounding boxes.
-        val boundingBoxList = extendBoundingBoxes(createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap), bitmapWidth, bitmapHeight)
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
@@ -269,29 +261,7 @@ class PaddleDetector {
         canvas.drawBitmap(bitmap, 0f, 0f, paint)
         return result
     }
-    private fun removeEvenBitmaps(bitmapList: List<Bitmap>): List<Bitmap> {
-        val oddBitmapList = mutableListOf<Bitmap>()
-        for (i in bitmapList.indices) {
-            if (i % 2 != 0) {
-                oddBitmapList.add(bitmapList[i])
-            }
-        }
-        return oddBitmapList
-    }
-    private fun extendBoundingBoxes(boundingBoxList: List<BoundingBox>, originalWidth: Int, originalHeight: Int): List<BoundingBox> {
-        // Take the bounding box list and extend the width to the rightmost edge of the original bitmap before resizing.
-        val extendedBoundingBoxList = mutableListOf<BoundingBox>()
-        for (boundingBox in boundingBoxList) {
-            val extendedBoundingBox = BoundingBox(
-                boundingBox.x,
-                boundingBox.y,
-                boundingBox.width + (originalWidth - boundingBox.x),
-                boundingBox.height
-            )
-            extendedBoundingBoxList.add(extendedBoundingBox)
-        }
-        return extendedBoundingBoxList
-    }
+
     fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<PaddleDetector.BoundingBox>): List<Bitmap> {
         // BoundingBox variables: x, y, width, height
         val croppedBitmapList = mutableListOf<Bitmap>()

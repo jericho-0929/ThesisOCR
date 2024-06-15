@@ -8,9 +8,9 @@
     "triple": "i686-linux-android",
     "llvmTriple": "i686-none-linux-android"
   },
-  "cxxBuildFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/x86",
-  "soFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
-  "soRepublishFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cmake/debug/obj/x86",
+  "cxxBuildFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/x86",
+  "soFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
+  "soRepublishFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cmake/debug/obj/x86",
   "abiPlatformVersion": 21,
   "cmake": {
     "effectiveConfiguration": {
@@ -40,13 +40,13 @@
     ],
     "cmakeSettingsConfiguration": "android-gradle-plugin-predetermined-name",
     "module": {
-      "cxxFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/.cxx",
-      "intermediatesBaseFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates",
-      "intermediatesFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cxx",
+      "cxxFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/.cxx",
+      "intermediatesBaseFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates",
+      "intermediatesFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cxx",
       "gradleModulePathName": ":opencv",
-      "moduleRootFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv",
-      "moduleBuildFile": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build.gradle",
-      "makeFile": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/libcxx_helper/CMakeLists.txt",
+      "moduleRootFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv",
+      "moduleBuildFile": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build.gradle",
+      "makeFile": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/libcxx_helper/CMakeLists.txt",
       "buildSystem": "CMAKE",
       "ndkFolder": "/home/jericho/Android/Sdk/ndk/25.1.8937393",
       "ndkFolderBeforeSymLinking": "/home/jericho/Android/Sdk/ndk/25.1.8937393",
@@ -143,7 +143,7 @@
         "SYSTEM": {}
       },
       "project": {
-        "rootBuildGradleFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR",
+        "rootBuildGradleFolder": "/var/home/jericho/StudioProjects/ThesisOCR",
         "sdkFolder": "/home/jericho/Android/Sdk",
         "isBuildOnlyTargetAbiEnabled": true,
         "isCmakeBuildCohabitationEnabled": false,
@@ -162,12 +162,12 @@
   "buildSettings": {
     "environmentVariables": []
   },
-  "prefabFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/prefab/x86",
+  "prefabFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/prefab/x86",
   "isActiveAbi": true,
   "fullConfigurationHash": "95966w12296p2n4h6h332d705p6m2x4w61493y452z5j4z2e1e443c5b5t4q4l",
   "fullConfigurationHashKey": "# Values used to calculate the hash in this folder name.\n# Should not depend on the absolute path of the project itself.\n#   - AGP: 8.2.1.\n#   - $NDK is the path to NDK 25.1.8937393.\n#   - $PROJECT is the path to the parent folder of the root Gradle build file.\n#   - $ABI is the ABI to be built with. The specific value doesn\u0027t contribute to the value of the hash.\n#   - $HASH is the hash value computed from this text.\n#   - $CMAKE is the path to CMake 3.22.1.\n#   - $NINJA is the path to Ninja.\n-H$PROJECT/opencv/libcxx_helper\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_SYSTEM_VERSION\u003d21\n-DANDROID_PLATFORM\u003dandroid-21\n-DANDROID_ABI\u003d$ABI\n-DCMAKE_ANDROID_ARCH_ABI\u003d$ABI\n-DANDROID_NDK\u003d$NDK\n-DCMAKE_ANDROID_NDK\u003d$NDK\n-DCMAKE_TOOLCHAIN_FILE\u003d$NDK/build/cmake/android.toolchain.cmake\n-DCMAKE_MAKE_PROGRAM\u003d$NINJA\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d$PROJECT/opencv/build/intermediates/cxx/Debug/$HASH/obj/$ABI\n-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d$PROJECT/opencv/build/intermediates/cxx/Debug/$HASH/obj/$ABI\n-DCMAKE_BUILD_TYPE\u003dDebug\n-B$PROJECT/opencv/.cxx/Debug/$HASH/$ABI\n-GNinja\n-DANDROID_STL\u003dc++_shared",
   "configurationArguments": [
-    "-H/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/libcxx_helper",
+    "-H/var/home/jericho/StudioProjects/ThesisOCR/opencv/libcxx_helper",
     "-DCMAKE_SYSTEM_NAME\u003dAndroid",
     "-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON",
     "-DCMAKE_SYSTEM_VERSION\u003d21",
@@ -178,13 +178,13 @@
     "-DCMAKE_ANDROID_NDK\u003d/home/jericho/Android/Sdk/ndk/25.1.8937393",
     "-DCMAKE_TOOLCHAIN_FILE\u003d/home/jericho/Android/Sdk/ndk/25.1.8937393/build/cmake/android.toolchain.cmake",
     "-DCMAKE_MAKE_PROGRAM\u003d/home/jericho/Android/Sdk/cmake/3.22.1/bin/ninja",
-    "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
-    "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
+    "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
+    "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12/obj/x86",
     "-DCMAKE_BUILD_TYPE\u003dDebug",
-    "-B/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/x86",
+    "-B/var/home/jericho/StudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/x86",
     "-GNinja",
     "-DANDROID_STL\u003dc++_shared"
   ],
   "stlLibraryFile": "/home/jericho/Android/Sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/i686-linux-android/libc++_shared.so",
-  "intermediatesParentFolder": "/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12"
+  "intermediatesParentFolder": "/var/home/jericho/StudioProjects/ThesisOCR/opencv/build/intermediates/cxx/Debug/95966w12"
 }

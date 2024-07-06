@@ -6,40 +6,51 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
+    <Button
+        android:id="@+id/btnCapture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
+        android:layout_marginStart="43dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/use_camera"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/btnSelectImage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="77dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/select_image"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btnCapture" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="151dp"
+        android:layout_marginTop="92dp"
+        android:layout_marginEnd="152dp"
+        android:layout_marginBottom="141dp"
+        app:layout_constraintBottom_toTopOf="@+id/resultsLine"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        tools:context=".MainActivity">
-        <Button
-            android:id="@+id/btnCapture"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/use_camera" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ic_launcher_foreground" />
 
-        <Button
-            android:id="@+id/btnSelectImage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/btnCapture"
-            android:layout_marginTop="6dp"
-            android:text="@string/select_image" />
-
-        <ImageView
-            android:id="@+id/imageView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/btnSelectImage"
-            android:layout_marginTop="16dp"
-            android:layout_centerHorizontal="true"
-            android:visibility="gone" />
-    </RelativeLayout>
+    <EditText
+        android:id="@+id/resultsLine"
+        android:layout_width="373dp"
+        android:layout_height="295dp"
+        android:layout_marginStart="19dp"
+        android:layout_marginTop="141dp"
+        android:ems="10"
+        android:gravity="start|top"
+        android:inputType="textMultiLine"
+        android:text="Hello World!\nRecognition results go here."
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imageView" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

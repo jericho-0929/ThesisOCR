@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtSession
 import ai.onnxruntime.providers.NNAPIFlags
 import android.content.res.Resources
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Environment
 import android.util.Log
 import java.util.EnumSet
@@ -13,6 +14,8 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+    private val premadeMask = BitmapFactory.decodeResource(resources, R.drawable.philsys_mask)
+
     data class ModelResults (
         var detectionResult: PaddleDetector.Result,
         var recognitionResult: PaddleRecognition.TextResult
@@ -24,7 +27,8 @@ class ModelProcessing(private val resources: Resources) {
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
         ortSession.close()
-        val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
+        val recogInputBitmapList = PaddleDetector().createBitmapListUsingPremadeMask(resizedBitmap, ImageProcessing().rescaleBitmap(premadeMask, resizeWidth, resizeHeight))
+        // val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
         ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
         val recognitionResult = PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
         ortSession.close()

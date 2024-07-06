@@ -261,8 +261,59 @@ class PaddleDetector {
         canvas.drawBitmap(bitmap, 0f, 0f, paint)
         return result
     }
-
-    fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<PaddleDetector.BoundingBox>): List<Bitmap> {
+    fun createBitmapListUsingPremadeMask(inputBitmap: Bitmap, mask: Bitmap): List<Bitmap> {
+        // Create list of bounding boxes using the mask.
+        val boundingBoxes = mutableListOf<BoundingBox>()
+        // Get the dimensions of the input bitmap.
+        val width = inputBitmap.width
+        val height = inputBitmap.height
+        // Convert the mask to a monochrome float array.
+        val floatArrayMask = convertImageToFloatArray(convertToMonochrome(mask))
+        // Create a 2D array to keep track of visited pixels.
+        val visitedPixels = Array(width) { BooleanArray(height) }
+        // Iterate through the mask and create bounding boxes for non-black pixels.
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                if (!visitedPixels[i][j] && floatArrayMask[0][0][i][j] > 0.0f) {
+                    // Initialize bounding box coordinates
+                    var minX = i
+                    var minY = j
+                    var maxX = i
+                    var maxY = j
+                    // Depth-first search to find contiguous white pixels
+                    val stack = mutableListOf<Pair<Int, Int>>()
+                    stack.add(Pair(i, j))
+                    visitedPixels[i][j] = true
+                    while (stack.isNotEmpty()) {
+                        val (x, y) = stack.removeAt(stack.size - 1)
+                        // Update bounding box coordinates
+                        minX = minOf(minX, x)
+                        minY = minOf(minY, y)
+                        maxX = maxOf(maxX, x)
+                        maxY = maxOf(maxY, y)
+                        // Check neighboring pixels
+                        for ((dx, dy) in listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)) {
+                            val newX = x + dx
+                            val newY = y + dy
+                            if (newX in 0 until width && newY in 0 until height &&
+                                !visitedPixels[newX][newY] && floatArrayMask[0][0][newX][newY] > 0.0f
+                            ) {
+                                stack.add(Pair(newX, newY))
+                                visitedPixels[newX][newY] = true
+                            }
+                        }
+                    }
+                    // Create bounding box for the contiguous white region
+                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20))
+                }
+            }
+        }
+        // Remove small bounding boxes
+        val minBoxWidth = 80
+        boundingBoxes.removeIf { it.width < minBoxWidth }
+        return cropBitmapToBoundingBoxes(inputBitmap, boundingBoxes)
+    }
+    fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<BoundingBox>): List<Bitmap> {
         // BoundingBox variables: x, y, width, height
         val croppedBitmapList = mutableListOf<Bitmap>()
         for (boundingBox in boundingBoxList){

@@ -23,11 +23,11 @@ import kotlin.time.measureTime
  */
 
 // TODO: IMPLEMENT COROUTINE FOR MODEL INFERENCE.
-internal class PaddleRecognition {
+class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,
     )
-    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult? {
+    fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult {
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
         val recognitionOutput = mutableListOf<List<String>>()

@@ -11,6 +11,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
+import kotlin.math.roundToInt
 import kotlin.time.measureTime
 
 /**
@@ -40,23 +41,31 @@ class PaddleRecognition {
         inputArray = padWidthDimensions(inputArray)
         // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
         // Split inputArray into chunks.
-        val inferenceChunks = splitIntoChunks(inputArray, 4)
+        val inferenceChunks = splitIntoChunks(inputArray, 4.0)
         val toAdd: List<OrtSession.Result>
         Log.d("PaddleRecognition", "Starting recognition inference.")
         // Process each chunk in parallel using async().
         runBlocking {
-            val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
+            val deferredList = mutableListOf<Deferred<MutableList<OrtSession.Result>>>()
             for (chunk in inferenceChunks) {
                 // Launch a coroutine for each chunk.
                 val deferred = async(Dispatchers.Default) {
-                    performInference(chunk, ortSession, ortEnvironment, modelVocab)
+                    Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().name}.")
+                    // Chunks of one.
+                    val imageChunks = chunk.chunked(1)
+                    val results = mutableListOf<OrtSession.Result>()
+                    for (imageToProcess in imageChunks) {
+                        val result = performInference(imageToProcess, ortSession, ortEnvironment, modelVocab)
+                        results.add(result)
+                    }
+                    results
                 }
                 // Add the deferred to the list.
                 deferredList.add(deferred)
             }
             // Wait for all coroutines to finish and collect their results.
             val recognitionInferenceTime = measureTime {
-                toAdd = deferredList.awaitAll()
+                toAdd = deferredList.awaitAll().flatten()
             }
             // Add all strings to listOfStrings.
             Log.d("PaddleRecognition", "Processing time (inc. overhead): $recognitionInferenceTime.")
@@ -163,12 +172,13 @@ class PaddleRecognition {
         }
         return listOfStrings
     }
-    private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Int): List<List<Array<Array<FloatArray>>>> {
+    private fun splitIntoChunks(inputArray: Array<Array<Array<FloatArray>>>, numOfChunks: Double): List<List<Array<Array<FloatArray>>>> {
         // Convert inputArray to a List datatype.
         val inputList = inputArray.toList()
         // Split inputList into four parts.
-        val chunkSize = inputList.size / numOfChunks
-        return inputList.chunked(chunkSize)
+        val chunkSize = (inputList.size / numOfChunks)
+        Log.d("PaddleRecognition", "Chunk size: $chunkSize.")
+        return inputList.chunked(chunkSize.roundToInt())
     }
     // Debugging functions
     private fun convertArrayToBitmap(array: Array<Array<FloatArray>>): Bitmap {

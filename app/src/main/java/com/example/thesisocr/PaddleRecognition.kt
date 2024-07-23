@@ -50,12 +50,12 @@ class PaddleRecognition {
             for (chunk in inferenceChunks) {
                 // Launch a coroutine for each chunk.
                 val deferred = async(Dispatchers.Default) {
-                    Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().name}.")
+                    Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().id}.")
                     // Chunks of one.
                     val imageChunks = chunk.chunked(1)
                     val results = mutableListOf<OrtSession.Result>()
                     for (imageToProcess in imageChunks) {
-                        val result = performInference(imageToProcess, ortSession, ortEnvironment, modelVocab)
+                        val result = performInference(imageToProcess, ortSession, ortEnvironment)
                         results.add(result)
                     }
                     results
@@ -75,7 +75,10 @@ class PaddleRecognition {
         for (result in toAdd) {
             recognitionOutput.add(processRawOutput(result, modelVocab))
         }
-        // TODO: Implement operations to transfer recognitionOutput to listOfStrings.
+        // Flatten the list of strings.
+        for (element in recognitionOutput) {
+            listOfStrings.addAll(element)
+        }
         return TextResult(listOfStrings)
     }
     // Helper functions
@@ -139,7 +142,7 @@ class PaddleRecognition {
         return paddedArray
     }
     // Coroutine helper functions
-    private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment, modelVocab: List<String>): OrtSession.Result {
+    private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): OrtSession.Result {
         val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
@@ -148,7 +151,7 @@ class PaddleRecognition {
         val inferenceTime = measureTime {
             output = ortSession.run(Collections.singletonMap("x", inputTensor))
         }
-        Log.d("PaddleRecognition", "Inference time: $inferenceTime.")
+        Log.d("PaddleRecognition", "Thread ID: ${Thread.currentThread().id}; Inference time: $inferenceTime.")
         return output
     }
     private fun processRawOutput(rawOutput: OrtSession.Result, modelVocab: List<String>): List<String> {
@@ -159,16 +162,25 @@ class PaddleRecognition {
         for (i in rawOutputArray.indices) {
             val sequenceLength = rawOutputArray[i].size
             val sequence = mutableListOf<String>()
+            var lastChar = ""
             for (j in 0 until sequenceLength) {
                 val maxIndex = rawOutputArray[i][j].indices.maxByOrNull { rawOutputArray[i][j][it] } ?: -1
-                if (maxIndex in 1..94 && rawOutputArray[i][j][maxIndex] > 0.75f) {
-                    sequence.add(modelVocab[maxIndex - 1])
+                if (maxIndex in 1..95 && rawOutputArray[i][j][maxIndex] > 0.74f) {
+                    val currentChar = modelVocab[maxIndex - 1]
+                    if (!(lastChar == " " && currentChar == " ")) {
+                        sequence.add(currentChar)
+                        lastChar = currentChar
+                    }
                 } else {
-
+                    // CTC Loss Handling
+                    if (maxIndex == 96) {
+                        sequence.add(" ")
+                        lastChar = " "
+                    }
                 }
             }
             listOfStrings.add(sequence.joinToString(""))
-            Log.d("PaddleRecognition", "Recognized text: $sequence")
+            Log.d("PaddleRecognition", "Recognized text: ${listOfStrings[i]}.")
         }
         return listOfStrings
     }

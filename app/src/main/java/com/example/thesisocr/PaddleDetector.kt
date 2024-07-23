@@ -213,12 +213,12 @@ class PaddleDetector {
                         }
                     }
                     // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20))
+                    boundingBoxes.add(BoundingBox(minX - 15, minY - 10, maxX - minX + 40, maxY - minY + 25))
                 }
             }
         }
         // Remove small bounding boxes
-        val minBoxWidth = 80
+        val minBoxWidth = 100
         boundingBoxes.removeIf { it.width < minBoxWidth }
         // Add results to the boundingBoxes list
         return boundingBoxes.distinct()

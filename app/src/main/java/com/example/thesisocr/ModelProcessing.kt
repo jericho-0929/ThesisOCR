@@ -27,14 +27,19 @@ class ModelProcessing(private val resources: Resources) {
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
         ortSession.close()
-        val recogInputBitmapList = PaddleDetector().createBitmapListUsingPremadeMask(resizedBitmap, ImageProcessing().rescaleBitmap(premadeMask, resizeWidth, resizeHeight))
-        // val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
+        /*
+        val recogInputBitmapList = PaddleDetector().createBitmapListUsingPremadeMask(
+            resizedBitmap,
+            ImageProcessing().rescaleBitmap(premadeMask, resizeWidth, resizeHeight)
+        )
+        */
+        val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
         ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
-        val recognitionResult = PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
+        val recognitionResult =
+            PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
         ortSession.close()
         return ModelResults(detectionResult, recognitionResult)
     }
-    // TODO: Modify to account for PaddleDetector() being sequential.
     fun warmupThreads(){
         Log.d("Warm-up", "Warming up threads.")
         // Empty bitmaps for warm-up.

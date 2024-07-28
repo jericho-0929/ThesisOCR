@@ -73,7 +73,7 @@ class ModelProcessing(private val resources: Resources) {
         val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(inputBitmap, detectionResult.boundingBoxList)
         val preProcessedList = mutableListOf<Bitmap>()
         for (element in croppedBitmapList){
-            preProcessedList.add(ImageProcessing().processImageForRecognition(element))
+            preProcessedList.add(element)
         }
         return preProcessedList
     }

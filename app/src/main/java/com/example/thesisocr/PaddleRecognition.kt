@@ -38,8 +38,7 @@ class PaddleRecognition {
         var inputArray: Array<Array<Array<FloatArray>>> =
             Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
         // Pad the width dimensions to the maximum width.
-        inputArray = padWidthDimensions(inputArray)
-        // val inputTensor = OnnxTensor.createTensor(ortEnvironment, inputArray)
+        // inputArray = padWidthDimensions(inputArray)
         // Split inputArray into chunks.
         val inferenceChunks = splitIntoChunks(inputArray, 4.0)
         val toAdd: List<OrtSession.Result>
@@ -165,7 +164,7 @@ class PaddleRecognition {
             var lastChar = ""
             for (j in 0 until sequenceLength) {
                 val maxIndex = rawOutputArray[i][j].indices.maxByOrNull { rawOutputArray[i][j][it] } ?: -1
-                if (maxIndex in 1..95 && rawOutputArray[i][j][maxIndex] > 0.74f) {
+                if (maxIndex in 1..95 && rawOutputArray[i][j][maxIndex] > 0.00f) {
                     val currentChar = modelVocab[maxIndex - 1]
                     if (!(lastChar == " " && currentChar == " ")) {
                         sequence.add(currentChar)

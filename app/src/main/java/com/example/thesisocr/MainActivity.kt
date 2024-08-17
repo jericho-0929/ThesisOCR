@@ -2,9 +2,17 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.icu.text.SimpleDateFormat
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -19,13 +27,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import com.example.thesisocr.databinding.ActivityCameraBinding
-import com.example.thesisocr.databinding.ActivityMainBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -35,13 +44,57 @@ class MainActivity : AppCompatActivity() {
     // ONNX Variables
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession
-    // TODO: Integrate PreProcessing.
-    // TODO: Move camera call and file picker functions to separate class.
+    // Camera Variables
     private lateinit var viewBinding: ActivityCameraBinding
     private lateinit var cameraExecutor: ExecutorService
+    private var imageCapture: ImageCapture? = null
+    private lateinit var cameraActivity: CameraActivity
+    // UI Variables.
     private var imageView: ImageView? = null
     private var textView: TextView? = null
+    // Everything else.
     private lateinit var modelProcessing: ModelProcessing
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Load OpenCV
+        OpenCVLoader.initLocal()
+        if(OpenCVLoader.initLocal()){
+            Log.e("MyTag","OpenCV Loaded.")
+        } else {
+            Log.e("MyTag","OpenCV Not Loaded.")
+        }
+        // Initialize Model Processing and Camera Activity
+        cameraActivity = CameraActivity()
+        modelProcessing = ModelProcessing(resources)
+        // Warm-up
+        modelProcessing.warmupThreads()
+        // Model Info
+        modelProcessing.getModelInfo(1)
+        modelProcessing.getModelInfo(2)
+        // Android Application Stuff
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        viewBinding = ActivityCameraBinding.inflate(layoutInflater)
+        val btnCallCamera = findViewById<Button>(R.id.btnCallCamera)
+        val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
+        imageView = findViewById(R.id.imageView)
+
+        // Button Listeners
+        btnSelectImage.setOnClickListener {
+            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+        btnCallCamera.setOnClickListener {
+            if (allPermissionsGranted()) {
+                // Call CameraActivity.kt
+                val intent = Intent(this, CameraActivity::class.java)
+                startCameraActivity.launch(intent)
+            } else {
+                requestPermissions()
+            }
+        }
+        cameraExecutor = Executors.newSingleThreadExecutor()
+    }
+    // Variables with lazy initialization
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         displayImageFromUri(uri)
         if (uri != null){
@@ -66,48 +119,20 @@ class MainActivity : AppCompatActivity() {
                 "Permission request denied",
                 Toast.LENGTH_SHORT).show()
         } else {
-            startCamera()
             Toast.makeText(baseContext,
                 "Camera open.",
                 Toast.LENGTH_SHORT).show()
         }
     }
-    override fun onCreate(savedInstanceState: Bundle?) {
-        // Load OpenCV
-        OpenCVLoader.initLocal()
-        if(OpenCVLoader.initLocal()){
-            Log.e("MyTag","OpenCV Loaded.")
-        } else {
-            Log.e("MyTag","OpenCV Not Loaded.")
+    private val startCameraActivity = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data: Intent? = result.data
+            val bitmapUri = Uri.parse(data?.getStringExtra("data"))
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
+            imageView?.setImageBitmap(bitmap)
         }
-        // Initialize Model Processing
-        modelProcessing = ModelProcessing(resources)
-        // Warm-up
-        modelProcessing.warmupThreads()
-        // Model Info
-        modelProcessing.getModelInfo(1)
-        modelProcessing.getModelInfo(2)
-        // Android Application Stuff
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        viewBinding = ActivityCameraBinding.inflate(layoutInflater)
-        val btnCapture = findViewById<Button>(R.id.btnCallCamera)
-        val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
-        imageView = findViewById(R.id.imageView)
-        btnSelectImage.setOnClickListener {
-            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        }
-        btnCapture.setOnClickListener {
-            if (allPermissionsGranted()) {
-                setContentView(R.layout.activity_camera)
-                startCamera()
-                setContentView(viewBinding.root)
-            } else {
-                requestPermissions()
-            }
-        }
-        cameraExecutor = Executors.newSingleThreadExecutor()
     }
+    // Functions
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageBitmap(bitmap)
@@ -125,6 +150,7 @@ class MainActivity : AppCompatActivity() {
             textView!!.append(string)
         }
     }
+    // Debug Functions
     private fun saveImage(bitmap: Bitmap, filename: String){
         val fileOutputStream = FileOutputStream(filename)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
@@ -135,39 +161,20 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(
             baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
-    private fun takePhoto() {
-
-    }
-    private fun startCamera(){
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
-            }
-            val imageCapture = ImageCapture.Builder().build()
-            val imageAnalyzer = ImageAnalysis.Builder().build()
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalyzer)
-            } catch (e: Exception) {
-                Log.e(TAG, "Use case binding failed", e)
-            }
-        }, ContextCompat.getMainExecutor(this))
-    }
     private fun requestPermissions() {
         requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)
     }
     override fun onDestroy() {
         super.onDestroy()
-        ortSession.close()
+        if (this::ortSession.isInitialized) {
+            ortSession.close()
+        }
         ortEnv.close()
         cameraExecutor.shutdown()
     }
     companion object {
-        private const val TAG = "CameraXApp"
-        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        const val TAG = "CameraXApp"
+        const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     }
 }

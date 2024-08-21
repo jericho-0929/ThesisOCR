@@ -23,13 +23,14 @@ class ModelProcessing(private val resources: Resources) {
     fun processImage(inputBitmap: Bitmap): ModelResults {
         val resizeWidth = 1280
         val resizeHeight = 960
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        var resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        // Image pre-processing.
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-        val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
+        val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, ortSession)
         ortSession.close()
         /*
         val recogInputBitmapList = PaddleDetector().createBitmapListUsingPremadeMask(
-            resizedBitmap,
+                    resizedBitmap,
             ImageProcessing().rescaleBitmap(premadeMask, resizeWidth, resizeHeight)
         )
         */
@@ -73,20 +74,20 @@ class ModelProcessing(private val resources: Resources) {
         val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(inputBitmap, detectionResult.boundingBoxList)
         val preProcessedList = mutableListOf<Bitmap>()
         for (element in croppedBitmapList){
-            preProcessedList.add(element)
+            preProcessedList.add(ImageProcessing().processImageForRecognition(element))
         }
         return preProcessedList
     }
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {
             1 -> R.raw.det_model
-            2 -> R.raw.rec_model
+            2 -> R.raw.latin_rec_model
             else -> R.raw.det_model
         }
         return resources.openRawResource(modelPackagePath).readBytes()
     }
     private fun loadDictionary(): List<String> {
-        val inputStream = resources.openRawResource(R.raw.en_dict)
+        val inputStream = resources.openRawResource(R.raw.latin_dict)
         val dictionary = mutableListOf<String>()
         inputStream.bufferedReader().useLines { lines ->
             lines.forEach {

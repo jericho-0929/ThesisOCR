@@ -164,7 +164,7 @@ class PaddleRecognition {
             var lastChar = ""
             for (j in 0 until sequenceLength) {
                 val maxIndex = rawOutputArray[i][j].indices.maxByOrNull { rawOutputArray[i][j][it] } ?: -1
-                if (maxIndex in 1..95 && rawOutputArray[i][j][maxIndex] > 0.00f) {
+                if (maxIndex in 1..185 && rawOutputArray[i][j][maxIndex] > 0.25f) {
                     val currentChar = modelVocab[maxIndex - 1]
                     if (!(lastChar == " " && currentChar == " ")) {
                         sequence.add(currentChar)
@@ -172,7 +172,7 @@ class PaddleRecognition {
                     }
                 } else {
                     // CTC Loss Handling
-                    if (maxIndex == 96) {
+                    if (maxIndex == 186) {
                         sequence.add(" ")
                         lastChar = " "
                     }

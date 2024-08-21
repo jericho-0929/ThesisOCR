@@ -2,6 +2,7 @@ package com.example.thesisocr
 
 import android.graphics.Bitmap
 import org.opencv.android.Utils
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Size
@@ -12,41 +13,49 @@ class ImageProcessing {
     fun rescaleBitmap(inputBitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, false)
     }
+    private fun convertBitmapToMat(inputBitmap: Bitmap): Mat {
+        val inputMat = Mat()
+        Utils.bitmapToMat(inputBitmap, inputMat)
+        Imgproc.cvtColor(inputMat, inputMat, Imgproc.COLOR_RGBA2BGR)
+        return inputMat
+    }
     // Detection pre-processing functions.
     // Blacken out 25% of the image's top and 10% of the image's right sections.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
-        val resultBitmap: Bitmap = sectionRemoval(inputBitmap)
-        return convertToBitmap((convertToGrayscaleMat(resultBitmap)))
+        val blurredMat = imageBlur(
+            sectionRemoval(
+                convertBitmapToMat(inputBitmap)
+            )
+        )
+        val dilatedMat = dilation(blurredMat)
+        val openedMat = opening(dilatedMat)
+        return convertToBitmap(openedMat)
     }
-    fun sectionRemoval(inputBitmap: Bitmap): Bitmap {
-        // Channel count is 4.
-        val inputMat = Mat()
-        Utils.bitmapToMat(inputBitmap, inputMat)
-        val height = inputMat.height()
+    private fun sectionRemoval(inputMat: Mat): Mat {
+        // Channel count is 3.
         val width = inputMat.width()
-        val top = (height * 0.25).toInt()
-        val right = (width * 0.10).toInt()
-        // Remove the specified top sections.
-        for (i in 0 until top) {
+        val height = inputMat.height()
+        val topSectionHeight = (height * 0.25).toInt()
+        val rightSectionWidth = (width * 0.10).toInt()
+        // Whiten out the topmost section.
+        for (i in 0 until topSectionHeight) {
             for (j in 0 until width) {
-                inputMat.put(i, j, 0.0, 0.0, 0.0, 0.0)
+                inputMat.put(i, j, 255.0, 255.0, 255.0)
             }
         }
-        // Remove the specified right sections.
+        // Whiten out the rightmost section.
         for (i in 0 until height) {
-            for (j in 0 until right) {
-                inputMat.put(i, width - j - 1, 0.0, 0.0, 0.0, 0.0)
+            for (j in 0 until rightSectionWidth) {
+                inputMat.put(i, width - j, 255.0, 255.0, 255.0)
             }
         }
-        return convertToBitmap(inputMat)
+        return inputMat
     }
     // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
         val grayMat = convertToGrayscaleMat(inputBitmap)
-        val equalizedMat = histogramEqualization(grayMat)
-        val blurredMat = imageBlur(equalizedMat)
-        val sharpenedMat = imageSharpening(blurredMat)
-        val thresholdMat = imageThresholding(sharpenedMat)
+        val blurredMat = imageBlur(grayMat)
+        val thresholdMat = imageThresholding(blurredMat)
         return convertToBitmap(thresholdMat)
     }
     private fun convertToGrayscaleMat(inputBitmap: Bitmap): Mat {
@@ -56,20 +65,14 @@ class ImageProcessing {
         Imgproc.cvtColor(inputMat, grayMat, Imgproc.COLOR_BGR2GRAY)
         return grayMat
     }
-    private fun histogramEqualization(inputMat: Mat): Mat {
-        // Use CLAHE
-        val equalizedMat = Mat()
-        Imgproc.createCLAHE(2.0, Size(8.0, 8.0)).apply(inputMat, equalizedMat)
-        return equalizedMat
-    }
     private fun imageBlur(inputMat: Mat): Mat {
         val blurredMat = Mat()
-        Imgproc.GaussianBlur(inputMat, blurredMat, Size(5.0, 5.0), 0.0)
+        Imgproc.bilateralFilter(inputMat, blurredMat, 5, 75.0, 75.0)
         return blurredMat
     }
     private fun imageThresholding(inputMat: Mat): Mat {
         val thresholdMat = Mat()
-        Imgproc.threshold(inputMat, thresholdMat, 135.0, 255.0, Imgproc.THRESH_OTSU)
+        Imgproc.threshold(inputMat, thresholdMat, 165.0, 255.0, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU)
         return thresholdMat
     }
     private fun imageSharpening(inputMat: Mat): Mat {
@@ -84,6 +87,15 @@ class ImageProcessing {
         val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0))
         Imgproc.dilate(inputMat, dilatedMat, kernel)
         return dilatedMat
+    }
+    private fun opening(inputMat: Mat): Mat {
+        val openedMat = Mat()
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0))
+        Imgproc.morphologyEx(inputMat, openedMat, Imgproc.MORPH_OPEN, kernel)
+        return openedMat
+    }
+    private fun contourFiltering() {
+        // TODO: Implement contour filtering.
     }
     private fun convertToBitmap(inputMat: Mat): Bitmap {
         val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)

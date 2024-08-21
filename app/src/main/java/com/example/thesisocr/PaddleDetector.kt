@@ -38,6 +38,7 @@ import kotlin.time.measureTime
  */
 class PaddleDetector {
     data class Result(
+        var outputMask: Bitmap,
         var outputBitmap: Bitmap,
         var boundingBoxList: List<BoundingBox>
     )
@@ -74,8 +75,8 @@ class PaddleDetector {
         for (i in resultList.indices) {
             fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap))
         }
-        // Stitch the output bitmaps together and apply post-processing to remove 25% of the top and 10% of the right sections.
-        val outputBitmap = ImageProcessing().sectionRemoval(stitchBitmapChunks(fixedBitmapList))
+        // Stitch the output bitmaps together
+        val outputBitmap = stitchBitmapChunks(fixedBitmapList)
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
@@ -83,7 +84,7 @@ class PaddleDetector {
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(renderedBitmap, boundingBoxList)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList)
     }
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
@@ -129,7 +130,7 @@ class PaddleDetector {
                 outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
             }
         }
-        return Result(outputBitmap, emptyList())
+        return Result(outputBitmap ,outputBitmap, emptyList())
     }
     // Stitch the output bitmaps.
     private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
@@ -213,12 +214,12 @@ class PaddleDetector {
                         }
                     }
                     // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 15, minY - 10, maxX - minX + 40, maxY - minY + 25))
+                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 25))
                 }
             }
         }
         // Remove small bounding boxes
-        val minBoxWidth = 100
+        val minBoxWidth = 50
         boundingBoxes.removeIf { it.width < minBoxWidth }
         // Add results to the boundingBoxes list
         return boundingBoxes.distinct()
@@ -304,13 +305,14 @@ class PaddleDetector {
                         }
                     }
                     // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20))
+                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 25))
                 }
             }
         }
         // Remove small bounding boxes
-        val minBoxWidth = 80
+        val minBoxWidth = 50
         boundingBoxes.removeIf { it.width < minBoxWidth }
+        // Add results to the boundingBoxes list
         return cropBitmapToBoundingBoxes(inputBitmap, boundingBoxes)
     }
     fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<BoundingBox>): List<Bitmap> {

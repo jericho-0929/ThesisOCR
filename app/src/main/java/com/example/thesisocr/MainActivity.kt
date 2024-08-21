@@ -2,6 +2,7 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -14,6 +15,7 @@ import android.icu.text.SimpleDateFormat
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
@@ -51,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraActivity: CameraActivity
     // UI Variables.
     private var imageView: ImageView? = null
-    private var textView: TextView? = null
+    private lateinit var textView: TextView
     // Everything else.
     private lateinit var modelProcessing: ModelProcessing
 
@@ -75,22 +77,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         viewBinding = ActivityCameraBinding.inflate(layoutInflater)
+        val textView = findViewById<TextView>(R.id.textView)
+        textView.movementMethod = android.text.method.ScrollingMovementMethod()
         val btnCallCamera = findViewById<Button>(R.id.btnCallCamera)
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         imageView = findViewById(R.id.imageView)
 
         // Button Listeners
+        // Select Image Button
         btnSelectImage.setOnClickListener {
             pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
+        // Call Camera Button
         btnCallCamera.setOnClickListener {
-            if (allPermissionsGranted()) {
-                // Call CameraActivity.kt
-                val intent = Intent(this, CameraActivity::class.java)
-                startCameraActivity.launch(intent)
-            } else {
-                requestPermissions()
-            }
+            startCameraActivity.launch(Intent(this, CameraActivity::class.java))
         }
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -129,7 +129,10 @@ class MainActivity : AppCompatActivity() {
             val data: Intent? = result.data
             val bitmapUri = Uri.parse(data?.getStringExtra("data"))
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
-            imageView?.setImageBitmap(bitmap)
+            // Process the image.
+            val modelResults = modelProcessing.processImage(bitmap)
+            displayImage(modelResults.detectionResult.outputBitmap)
+            displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
         }
     }
     // Functions

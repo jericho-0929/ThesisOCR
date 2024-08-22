@@ -1,6 +1,8 @@
 package com.example.thesisocr
 
+import android.content.res.Resources
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -11,7 +13,7 @@ import org.opencv.imgproc.Imgproc
 class ImageProcessing {
     // General image processing functions.
     fun rescaleBitmap(inputBitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
-        return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, false)
+        return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, true)
     }
     private fun convertBitmapToMat(inputBitmap: Bitmap): Mat {
         val inputMat = Mat()
@@ -20,17 +22,17 @@ class ImageProcessing {
         return inputMat
     }
     // Detection pre-processing functions.
-    // Blacken out 25% of the image's top and 10% of the image's right sections.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
             sectionRemoval(
-                convertBitmapToMat(inputBitmap)
+                convertToGrayscaleMat(inputBitmap)
             )
         )
-        val dilatedMat = dilation(blurredMat)
-        val openedMat = opening(dilatedMat)
+        val sharpenedMat = imageSharpening(imageBlur(blurredMat))
+        val openedMat = opening(sharpenedMat)
         return convertToBitmap(openedMat)
     }
+    // Blacken out 25% of the image's top and 5% of the image's right.
     private fun sectionRemoval(inputMat: Mat): Mat {
         // Channel count is 3.
         val width = inputMat.width()
@@ -43,7 +45,7 @@ class ImageProcessing {
                 inputMat.put(i, j, 255.0, 255.0, 255.0)
             }
         }
-        // Whiten out the rightmost section.
+        // Whiten out the rightmost section
         for (i in 0 until height) {
             for (j in 0 until rightSectionWidth) {
                 inputMat.put(i, width - j, 255.0, 255.0, 255.0)
@@ -54,9 +56,11 @@ class ImageProcessing {
     // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
         val grayMat = convertToGrayscaleMat(inputBitmap)
-        val blurredMat = imageBlur(grayMat)
+        // Blur twice.
+        val blurredMat = imageBlur(imageBlur(grayMat))
         val thresholdMat = imageThresholding(blurredMat)
-        return convertToBitmap(thresholdMat)
+        val openedMat = opening(thresholdMat)
+        return convertToBitmap(imageBlur(openedMat))
     }
     private fun convertToGrayscaleMat(inputBitmap: Bitmap): Mat {
         val inputMat = Mat()
@@ -96,6 +100,21 @@ class ImageProcessing {
     }
     private fun contourFiltering() {
         // TODO: Implement contour filtering.
+    }
+    fun applyMask(inputBitmap: Bitmap, resources: Resources): Bitmap {
+        // Use philsys_mask.jpg as the mask.
+        val maskBitmap = rescaleBitmap(
+            BitmapFactory.decodeResource(resources, R.drawable.philsys_mask),
+            inputBitmap.width,
+            inputBitmap.height
+        )
+        // Convert bitmaps to scalars.
+        val inputMat = convertBitmapToMat(inputBitmap)
+        val maskMat = convertBitmapToMat(maskBitmap)
+        val outputMat = Mat()
+        // Apply bitwise_and operation.
+        Core.bitwise_and(inputMat, maskMat, outputMat)
+        return convertToBitmap(outputMat)
     }
     private fun convertToBitmap(inputMat: Mat): Bitmap {
         val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)

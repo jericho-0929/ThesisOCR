@@ -88,6 +88,7 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
             }
             return@setOnTouchListener true
         }
+
         btnTakePhoto.setOnClickListener {
             takePhoto()
             Toast.makeText(this, "Photo taken. Wait for processing.", Toast.LENGTH_SHORT).show()
@@ -134,13 +135,14 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
             }
             imageCapture = ImageCapture.Builder()
                 //.setFlashMode(ImageCapture.FLASH_MODE_ON)
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build()
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
             try {
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
                 cameraControl = camera.cameraControl
+                cameraControl.setZoomRatio(2.0f)
             } catch (e: Exception) {
                 Log.e(MainActivity.TAG, "Use case binding failed", e)
             }

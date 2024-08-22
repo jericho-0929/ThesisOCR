@@ -5,7 +5,6 @@ import ai.onnxruntime.OrtSession
 import ai.onnxruntime.providers.NNAPIFlags
 import android.content.res.Resources
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Environment
 import android.util.Log
 import java.util.EnumSet
@@ -14,7 +13,6 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-    private val premadeMask = BitmapFactory.decodeResource(resources, R.drawable.philsys_mask)
 
     data class ModelResults (
         var detectionResult: PaddleDetector.Result,
@@ -23,17 +21,12 @@ class ModelProcessing(private val resources: Resources) {
     fun processImage(inputBitmap: Bitmap): ModelResults {
         val resizeWidth = 1280
         val resizeHeight = 960
-        var resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        // val resizedBitmap = ImageProcessing().applyMask(ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight), resources)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
         // Image pre-processing.
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, ortSession)
         ortSession.close()
-        /*
-        val recogInputBitmapList = PaddleDetector().createBitmapListUsingPremadeMask(
-                    resizedBitmap,
-            ImageProcessing().rescaleBitmap(premadeMask, resizeWidth, resizeHeight)
-        )
-        */
         val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
         ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
         val recognitionResult =

@@ -60,6 +60,7 @@ class PaddleDetector {
             val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
             for (chunk in inferenceChunks) {
                 val deferred = async(Dispatchers.Default) {
+                    Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().id}.")
                     runModel(chunk, ortEnvironment, ortSession)
                 }
                 deferredList.add(deferred)
@@ -72,8 +73,14 @@ class PaddleDetector {
         Log.d("PaddleDetector", "Inference complete.")
         // Fix the output bitmaps by closing horizontal gaps.
         val fixedBitmapList = mutableListOf<Bitmap>()
+        val pixelDistance = 35
         for (i in resultList.indices) {
-            fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap))
+            // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
+            when (i) {
+                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
+                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
+                else -> fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
+            }
         }
         // Stitch the output bitmaps together
         val outputBitmap = stitchBitmapChunks(fixedBitmapList)
@@ -83,6 +90,14 @@ class PaddleDetector {
             outputBitmap, bitmapWidth, bitmapHeight)
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
         // Render bounding boxes on the inputBitmap.
+        val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList)
+    }
+    fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960)
+        val rawOutput = runModel(resizedBitmap, ortEnvironment, ortSession)
+        val outputBitmap = processRawOutput(rawOutput, resizedBitmap).outputBitmap
+        val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
         return Result(outputBitmap, renderedBitmap, boundingBoxList)
     }
@@ -114,7 +129,7 @@ class PaddleDetector {
         val inferenceTime = measureTime {
             output = ortSession.run(Collections.singletonMap("x", inputTensor))
         }
-        Log.d("PaddleDetector", "Inference time: $inferenceTime")
+        Log.d("PaddleDetector", "Thread ID: ${Thread.currentThread().id}; Inference time: $inferenceTime")
         // Return the output as a Bitmap.
         return output
     }
@@ -143,23 +158,16 @@ class PaddleDetector {
         return outputBitmap
     }
     // Close horizontal gaps by extending non-black pixels closest to bitmap edges.
-    private fun closeHorizontalGaps(inputBitmap: Bitmap): Bitmap {
+    private fun closeHorizontalGapsRightOnly(inputBitmap: Bitmap, pixelDistance: Int): Bitmap {
         val width = inputBitmap.width
         val height = inputBitmap.height
         // Copy inputBitmap to outputBitmap
         val outputBitmap = inputBitmap.copy(inputBitmap.config, true)
         // Extend non-black pixels if they are within specified pixels of the bitmap edges.
-        val pixelDistance = 20
         for (i in 0 until width) {
             for (j in 0 until height) {
                 val pixel = inputBitmap.getPixel(i, j)
                 if (pixel != Color.BLACK) {
-                    // Extend non-black pixels closest to the left edge.
-                    if (i < pixelDistance) {
-                        for (k in 0 until i) {
-                            outputBitmap.setPixel(k, j, pixel)
-                        }
-                    }
                     // Extend non-black pixels closest to the right edge.
                     if (i > width - pixelDistance) {
                         for (k in i until width) {
@@ -171,8 +179,32 @@ class PaddleDetector {
         }
         return outputBitmap
     }
+    private fun closeHorizontalGapsLeftOnly(inputBitmap: Bitmap, pixelDistance: Int): Bitmap {
+        val width = inputBitmap.width
+        val height = inputBitmap.height
+        // Copy inputBitmap to outputBitmap
+        val outputBitmap = inputBitmap.copy(inputBitmap.config, true)
+        // Extend non-black pixels if they are within specified pixels of the bitmap edges.
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val pixel = inputBitmap.getPixel(i, j)
+                if (pixel != Color.BLACK) {
+                    // Extend non-black pixels closest to the left edge.
+                    if (i < pixelDistance) {
+                        for (k in 0 until i) {
+                            outputBitmap.setPixel(k, j, pixel)
+                        }
+                    }
+                }
+            }
+        }
+        return outputBitmap
+    }
+    private fun closeHorizontalGaps(inputBitmap: Bitmap, pixelDistance: Int): Bitmap {
+        val rightBitmap = closeHorizontalGapsRightOnly(inputBitmap, pixelDistance)
+        return closeHorizontalGapsLeftOnly(rightBitmap, pixelDistance)
+    }
     // Post-processing helper functions.
-
     private fun createBoundingBoxes(rawOutput: Array<Array<Array<FloatArray>>>, inputBitmap: Bitmap): List<BoundingBox> {
         // Create bounding boxes from the raw output of the model.
         val boundingBoxes = mutableListOf<BoundingBox>()
@@ -261,59 +293,6 @@ class PaddleDetector {
         }
         canvas.drawBitmap(bitmap, 0f, 0f, paint)
         return result
-    }
-    fun createBitmapListUsingPremadeMask(inputBitmap: Bitmap, mask: Bitmap): List<Bitmap> {
-        // Create list of bounding boxes using the mask.
-        val boundingBoxes = mutableListOf<BoundingBox>()
-        // Get the dimensions of the input bitmap.
-        val width = inputBitmap.width
-        val height = inputBitmap.height
-        // Convert the mask to a monochrome float array.
-        val floatArrayMask = convertImageToFloatArray(convertToMonochrome(mask))
-        // Create a 2D array to keep track of visited pixels.
-        val visitedPixels = Array(width) { BooleanArray(height) }
-        // Iterate through the mask and create bounding boxes for non-black pixels.
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                if (!visitedPixels[i][j] && floatArrayMask[0][0][i][j] > 0.0f) {
-                    // Initialize bounding box coordinates
-                    var minX = i
-                    var minY = j
-                    var maxX = i
-                    var maxY = j
-                    // Depth-first search to find contiguous white pixels
-                    val stack = mutableListOf<Pair<Int, Int>>()
-                    stack.add(Pair(i, j))
-                    visitedPixels[i][j] = true
-                    while (stack.isNotEmpty()) {
-                        val (x, y) = stack.removeAt(stack.size - 1)
-                        // Update bounding box coordinates
-                        minX = minOf(minX, x)
-                        minY = minOf(minY, y)
-                        maxX = maxOf(maxX, x)
-                        maxY = maxOf(maxY, y)
-                        // Check neighboring pixels
-                        for ((dx, dy) in listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)) {
-                            val newX = x + dx
-                            val newY = y + dy
-                            if (newX in 0 until width && newY in 0 until height &&
-                                !visitedPixels[newX][newY] && floatArrayMask[0][0][newX][newY] > 0.0f
-                            ) {
-                                stack.add(Pair(newX, newY))
-                                visitedPixels[newX][newY] = true
-                            }
-                        }
-                    }
-                    // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 25))
-                }
-            }
-        }
-        // Remove small bounding boxes
-        val minBoxWidth = 50
-        boundingBoxes.removeIf { it.width < minBoxWidth }
-        // Add results to the boundingBoxes list
-        return cropBitmapToBoundingBoxes(inputBitmap, boundingBoxes)
     }
     fun cropBitmapToBoundingBoxes(inputBitmap: Bitmap, boundingBoxList: List<BoundingBox>): List<Bitmap> {
         // BoundingBox variables: x, y, width, height

@@ -69,6 +69,9 @@ class MainActivity : AppCompatActivity() {
         cameraActivity = CameraActivity()
         modelProcessing = ModelProcessing(resources)
         // Warm-up
+        Toast.makeText(baseContext,
+            "Initializing models.",
+            Toast.LENGTH_SHORT).show()
         modelProcessing.warmupThreads()
         // Model Info
         modelProcessing.getModelInfo(1)
@@ -99,10 +102,8 @@ class MainActivity : AppCompatActivity() {
         displayImageFromUri(uri)
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
-            Log.d("Photo Picker", "Photo selected: $uri")
-            val modelResults = modelProcessing.processImage(bitmap)
-            displayImage(modelResults.detectionResult.outputBitmap)
-            displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
+            // Process the image.
+            processBitmap(bitmap)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -130,12 +131,26 @@ class MainActivity : AppCompatActivity() {
             val bitmapUri = Uri.parse(data?.getStringExtra("data"))
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
             // Process the image.
-            val modelResults = modelProcessing.processImage(bitmap)
-            displayImage(modelResults.detectionResult.outputBitmap)
-            displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
+            processBitmap(bitmap)
         }
     }
     // Functions
+    private fun processBitmap(bitmap: Bitmap) {
+        // Process the image.
+        val modelResults = modelProcessing.processImage(bitmap)
+        // Display the image and recognition results.
+        displayImage(modelResults.detectionResult.outputBitmap)
+        displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
+        // Display inference times to the user.
+        Toast.makeText(baseContext,
+            "Detection Inference Time: ${modelResults.detectionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
+            , Toast.LENGTH_LONG
+        ).show()
+        Toast.makeText(baseContext,
+            "Recognition Inference Time: ${modelResults.recognitionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
+            , Toast.LENGTH_LONG
+        ).show()
+    }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageBitmap(bitmap)

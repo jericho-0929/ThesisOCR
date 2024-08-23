@@ -15,7 +15,7 @@ class ImageProcessing {
     fun rescaleBitmap(inputBitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(inputBitmap, newWidth, newHeight, true)
     }
-    private fun convertBitmapToMat(inputBitmap: Bitmap): Mat {
+    fun convertBitmapToMat(inputBitmap: Bitmap): Mat {
         val inputMat = Mat()
         Utils.bitmapToMat(inputBitmap, inputMat)
         Imgproc.cvtColor(inputMat, inputMat, Imgproc.COLOR_RGBA2BGR)
@@ -32,12 +32,12 @@ class ImageProcessing {
         val openedMat = opening(sharpenedMat)
         return convertToBitmap(openedMat)
     }
-    // Blacken out 25% of the image's top and 5% of the image's right.
+    // Blacken out a percentage of the image's top and of the image's right.
     private fun sectionRemoval(inputMat: Mat): Mat {
         // Channel count is 3.
         val width = inputMat.width()
         val height = inputMat.height()
-        val topSectionHeight = (height * 0.25).toInt()
+        val topSectionHeight = (height * 0.30).toInt()
         val rightSectionWidth = (width * 0.10).toInt()
         // Whiten out the topmost section.
         for (i in 0 until topSectionHeight) {
@@ -88,17 +88,17 @@ class ImageProcessing {
     }
     private fun dilation(inputMat: Mat): Mat {
         val dilatedMat = Mat()
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0))
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
         Imgproc.dilate(inputMat, dilatedMat, kernel)
         return dilatedMat
     }
-    private fun opening(inputMat: Mat): Mat {
+    fun opening(inputMat: Mat): Mat {
         val openedMat = Mat()
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0))
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
         Imgproc.morphologyEx(inputMat, openedMat, Imgproc.MORPH_OPEN, kernel)
         return openedMat
     }
-    private fun contourFiltering() {
+    fun contourFiltering() {
         // TODO: Implement contour filtering.
     }
     fun applyMask(inputBitmap: Bitmap, resources: Resources): Bitmap {
@@ -116,7 +116,7 @@ class ImageProcessing {
         Core.bitwise_and(inputMat, maskMat, outputMat)
         return convertToBitmap(outputMat)
     }
-    private fun convertToBitmap(inputMat: Mat): Bitmap {
+    fun convertToBitmap(inputMat: Mat): Bitmap {
         val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(inputMat, outputBitmap)
         return outputBitmap

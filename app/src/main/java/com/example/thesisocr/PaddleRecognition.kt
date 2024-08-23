@@ -12,6 +12,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
 import kotlin.math.roundToInt
+import kotlin.time.Duration
 import kotlin.time.measureTime
 
 /**
@@ -27,7 +28,9 @@ import kotlin.time.measureTime
 class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,
+        var inferenceTime: Duration
     )
+    private var inferenceTime: Duration = Duration.ZERO
     fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult {
         // Variables for recognition output.
         val listOfStrings = mutableListOf<String>()
@@ -67,6 +70,7 @@ class PaddleRecognition {
                 toAdd = deferredList.awaitAll().flatten()
             }
             // Add all strings to listOfStrings.
+            inferenceTime = recognitionInferenceTime
             Log.d("PaddleRecognition", "Processing time (inc. overhead): $recognitionInferenceTime.")
         }
         Log.d("PaddleRecognition", "Inference completed.")
@@ -78,7 +82,7 @@ class PaddleRecognition {
         for (element in recognitionOutput) {
             listOfStrings.addAll(element)
         }
-        return TextResult(listOfStrings)
+        return TextResult(listOfStrings, inferenceTime)
     }
     // Helper functions
     private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {

@@ -21,6 +21,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.io.FileOutputStream
 import java.util.Collections
+import kotlin.time.Duration
 import kotlin.time.measureTime
 
 /**
@@ -40,9 +41,12 @@ class PaddleDetector {
     data class Result(
         var outputMask: Bitmap,
         var outputBitmap: Bitmap,
-        var boundingBoxList: List<BoundingBox>
+        var boundingBoxList: List<BoundingBox>,
+        var inferenceTime: Duration
     )
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
+    private var inferenceTime: Duration = Duration.ZERO
+
     fun detect(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
@@ -68,6 +72,7 @@ class PaddleDetector {
             val totalInferenceTime = measureTime {
                 resultList = deferredList.awaitAll()
             }
+            inferenceTime = totalInferenceTime
             Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
         }
         Log.d("PaddleDetector", "Inference complete.")
@@ -77,13 +82,24 @@ class PaddleDetector {
         for (i in resultList.indices) {
             // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
             when (i) {
-                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
-                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
-                else -> fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]).outputBitmap, pixelDistance))
+                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(processRawOutput(resultList[i], inferenceChunks[i]), pixelDistance))
+                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(processRawOutput(resultList[i], inferenceChunks[i]), pixelDistance))
+                else -> fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], inferenceChunks[i]), pixelDistance))
             }
         }
         // Stitch the output bitmaps together
-        val outputBitmap = stitchBitmapChunks(fixedBitmapList)
+        val debugOutputBitmap = ImageProcessing().convertToBitmap(
+            ImageProcessing().convertBitmapToMat(
+                stitchBitmapChunks(fixedBitmapList)
+            )
+        )
+        val outputBitmap = ImageProcessing().convertToBitmap(
+            ImageProcessing().opening(
+                ImageProcessing().convertBitmapToMat(
+                    stitchBitmapChunks(fixedBitmapList)
+                )
+            )
+        )
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().rescaleBitmap(
@@ -91,15 +107,15 @@ class PaddleDetector {
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(outputBitmap, renderedBitmap, boundingBoxList)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
     }
     fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960)
         val rawOutput = runModel(resizedBitmap, ortEnvironment, ortSession)
-        val outputBitmap = processRawOutput(rawOutput, resizedBitmap).outputBitmap
+        val outputBitmap = processRawOutput(rawOutput, resizedBitmap)
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(outputBitmap, renderedBitmap, boundingBoxList)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
     }
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
@@ -133,7 +149,7 @@ class PaddleDetector {
         // Return the output as a Bitmap.
         return output
     }
-    private fun processRawOutput(rawOutput: OrtSession.Result, inputBitmap: Bitmap): Result {
+    private fun processRawOutput(rawOutput: OrtSession.Result, inputBitmap: Bitmap): Bitmap {
         // Feature map from the model's output.
         val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
         // Convert rawOutput to a Bitmap
@@ -145,7 +161,7 @@ class PaddleDetector {
                 outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
             }
         }
-        return Result(outputBitmap ,outputBitmap, emptyList())
+        return outputBitmap
     }
     // Stitch the output bitmaps.
     private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {

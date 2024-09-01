@@ -24,9 +24,9 @@ class ImageProcessing {
     // Detection pre-processing functions.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
-            sectionRemoval(
+            //sectionRemoval(
                 convertToGrayscaleMat(inputBitmap)
-            )
+            //)
         )
         val sharpenedMat = imageSharpening(imageBlur(blurredMat))
         val openedMat = opening(sharpenedMat)

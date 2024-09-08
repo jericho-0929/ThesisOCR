@@ -28,7 +28,7 @@
         android:id="@+id/rect_image"
         android:layout_width="540dp"
         android:layout_height="340dp"
-        android:src="@drawable/rectangle_guide"
+        android:src="@drawable/id_mask"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"

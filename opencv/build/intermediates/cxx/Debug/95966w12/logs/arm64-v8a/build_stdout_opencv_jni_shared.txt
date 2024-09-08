@@ -1,2 +1,0 @@
-ninja: Entering directory `/home/jericho/AndroidStudioProjects/ThesisOCR/opencv/.cxx/Debug/95966w12/arm64-v8a'
-ninja: no work to do.

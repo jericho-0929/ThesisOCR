@@ -8,9 +8,9 @@
         <option name="gradleJvm" value="jbr-17" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/opencv" />
+            <option value="/var/home/jericho/StudioProjects/ThesisOCR" />
+            <option value="/var/home/jericho/StudioProjects/ThesisOCR/app" />
+            <option value="/var/home/jericho/StudioProjects/ThesisOCR/opencv" />
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="false" />

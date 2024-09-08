@@ -2,9 +2,18 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.providers.NNAPIFlags
+import android.content.ActivityNotFoundException
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.icu.text.SimpleDateFormat
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -12,13 +21,24 @@ import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.example.thesisocr.databinding.ActivityMainBinding
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import com.example.thesisocr.databinding.ActivityCameraBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
-import java.util.EnumSet
+import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
     // Model Vocabulary from en_dict.txt raw resource file.
@@ -26,10 +46,16 @@ class MainActivity : AppCompatActivity() {
     // ONNX Variables
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession
-    // TODO: Integrate PreProcessing.
-    // TODO: Move camera call and file picker functions to separate class.
-    private lateinit var binding: ActivityMainBinding
+    // Camera Variables
+    private lateinit var viewBinding: ActivityCameraBinding
+    private lateinit var cameraExecutor: ExecutorService
+    private var imageCapture: ImageCapture? = null
+    private lateinit var cameraActivity: CameraActivity
+    // UI Variables.
     private var imageView: ImageView? = null
+    private lateinit var textView: TextView
+    // Everything else.
+    private lateinit var modelProcessing: ModelProcessing
     private val imageProcessing = ImageProcessing()
     private val textRecognition = PaddleRecognition()
     private val textDetection = PaddleDetector()
@@ -47,8 +73,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Load Model Vocabulary
-        modelVocab = loadDictionary()
         // Load OpenCV
         OpenCVLoader.initLocal()
         if(OpenCVLoader.initLocal()){
@@ -56,65 +80,91 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.e("MyTag","OpenCV Not Loaded.")
         }
-        // ONNX Model Stuff
-        // Text Detection Model
+        // Initialize Model Processing and Camera Activity
+        cameraActivity = CameraActivity()
+        modelProcessing = ModelProcessing(resources)
+        // Warm-up
+        Toast.makeText(baseContext,
+            "Initializing models.",
+            Toast.LENGTH_SHORT).show()
+        modelProcessing.warmupThreads()
+        // Model Info
+        modelProcessing.getModelInfo(1)
+        modelProcessing.getModelInfo(2)
         // Android Application Stuff
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        val btnCapture = findViewById<Button>(R.id.btnCapture)
+        viewBinding = ActivityCameraBinding.inflate(layoutInflater)
+        val textView = findViewById<TextView>(R.id.textView)
+        textView.movementMethod = android.text.method.ScrollingMovementMethod()
+        val btnCallCamera = findViewById<Button>(R.id.btnCallCamera)
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         imageView = findViewById(R.id.imageView)
+
+        // Button Listeners
+        // Select Image Button
         btnSelectImage.setOnClickListener {
             pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-    }
-    private fun neuralNetProcess(bitmap: Bitmap){
-        val bitmapResizeWidth = 1280
-        val bitmapResizeHeight = 960
-        val rescaledBitmap = rescaleBitmap(bitmap, bitmapResizeWidth, bitmapResizeHeight)
-        Log.d("Neural Network Processing", "Neural Network Processing Started.")
-        // Run detection model.
-        ortSession = createOrtSession(selectModel(1), ortSessionConfigurations())
-        ortSessionConfigurations()
-        val detectionResult = textDetection.detect(rescaledBitmap, ortEnv, ortSession)
-        ortSession.close()
-        if (detectionResult != null) {
-            // Display image to UI.
-            displayImage(detectionResult.outputBitmap)
-            // Crop image to bounding boxes.
-            val recognitionInputBitmapList = cropAndProcessBitmapList(rescaleBitmap(bitmap,bitmapResizeWidth, bitmapResizeHeight), detectionResult)
-            // Run recognition model.
-            ortSession = createOrtSession(selectModel(2), ortSessionConfigurations())
-            val recognitionResult = textRecognition.recognize(recognitionInputBitmapList, ortEnv, ortSession, modelVocab)
-            ortSession.close()
+        // Call Camera Button
+        btnCallCamera.setOnClickListener {
+            startCameraActivity.launch(Intent(this, CameraActivity::class.java))
         }
-        Log.d("Neural Network Processing", "Neural Network Processing Completed.")
-        Log.d("Output Image", "Output Image Saved to ${Environment.getExternalStorageDirectory().toString() + "/Pictures/output.jpg"}")
+        cameraExecutor = Executors.newSingleThreadExecutor()
     }
-    private fun createOrtSession(modelToLoad: ByteArray, sessionOptions: OrtSession.SessionOptions): OrtSession {
-        return ortEnv.createSession(modelToLoad, sessionOptions)
-    }
-    private fun ortSessionConfigurations(): OrtSession.SessionOptions {
-        val sessionOptions = OrtSession.SessionOptions()
-        // Add NNAPI with configurations
-        val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
-        sessionOptions.addNnapi(nnapiFlags)
-        // Execution Mode and Optimization Level
-        sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
-        // Thread Pool Configuration
-        sessionOptions.setIntraOpNumThreads(4)
-        // Get settings information
-        val sessionOptionInfo = sessionOptions.configEntries
-        Log.d("Session Options", "Session Options: $sessionOptionInfo")
-        return sessionOptions
-    }
-    private fun cropAndProcessBitmapList(inputBitmap: Bitmap, detectionResult: PaddleDetector.Result): MutableList<Bitmap>{
-        val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(inputBitmap, detectionResult.boundingBoxList)
-        val preProcessedList = mutableListOf<Bitmap>()
-        for (element in croppedBitmapList){
-            preProcessedList.add(imageProcessing.processImageForRecognition(element))
+    // Variables with lazy initialization
+    private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        displayImageFromUri(uri)
+        if (uri != null){
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
+            // Process the image.
+            processBitmap(bitmap)
+        } else {
+            Log.d("Photo Picker", "No photo selected.")
         }
-        return preProcessedList
+    }
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){
+        permissions ->
+        var permissionGranted = true
+        permissions.entries.forEach {
+            if (it.key in REQUIRED_PERMISSIONS && !it.value)
+                permissionGranted = false
+        }
+        if (!permissionGranted) {
+            Toast.makeText(baseContext,
+                "Permission request denied",
+                Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(baseContext,
+                "Camera open.",
+                Toast.LENGTH_SHORT).show()
+        }
+    }
+    private val startCameraActivity = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data: Intent? = result.data
+            val bitmapUri = Uri.parse(data?.getStringExtra("data"))
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
+            // Process the image.
+            processBitmap(bitmap)
+        }
+    }
+    // Functions
+    private fun processBitmap(bitmap: Bitmap) {
+        // Process the image.
+        val modelResults = modelProcessing.processImage(bitmap)
+        // Display the image and recognition results.
+        displayImage(modelResults.detectionResult.outputBitmap)
+        displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
+        // Display inference times to the user.
+        Toast.makeText(baseContext,
+            "Detection Inference Time: ${modelResults.detectionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
+            , Toast.LENGTH_LONG
+        ).show()
+        Toast.makeText(baseContext,
+            "Recognition Inference Time: ${modelResults.recognitionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
+            , Toast.LENGTH_LONG
+        ).show()
     }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
@@ -124,41 +174,40 @@ class MainActivity : AppCompatActivity() {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageURI(imageUri)
     }
-    private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
-    }
-    private fun selectModel(modelNum: Int): ByteArray{
-        val modelPackagePath = when (modelNum) {
-            1 -> R.raw.det_model
-            2 -> R.raw.rec_model
-            else -> R.raw.det_model
+    private fun displayRecognitionResults(listOfStrings: MutableList<String>) {
+        textView = findViewById(R.id.textView)
+        textView!!.visibility = View.VISIBLE
+        textView!!.text = "Recognition Results (Unordered):"
+        for (string in listOfStrings) {
+            textView!!.append("\n")
+            textView!!.append(string)
         }
-        return resources.openRawResource(modelPackagePath).readBytes()
     }
-    private fun gatherModelOutputInputInfo(modelToLoad: ByteArray){
-        ortSession = ortEnv.createSession(modelToLoad, OrtSession.SessionOptions())
-        val inputInfo = ortSession.inputInfo
-        val outputInfo = ortSession.outputInfo
-        Log.d("Model Info", "Input Info: $inputInfo")
-        Log.d("Model Info", "Output Info: $outputInfo")
-    }
-    private fun debugGetModelInfo(modelSelect: Int){
-        val selectedModelByteArray = selectModel(modelSelect)
-        gatherModelOutputInputInfo(selectedModelByteArray)
-    }
+    // Debug Functions
     private fun saveImage(bitmap: Bitmap, filename: String){
         val fileOutputStream = FileOutputStream(filename)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
     }
-    private fun loadDictionary(): List<String> {
-        val inputStream = resources.openRawResource(R.raw.en_dict)
-        val dictionary = mutableListOf<String>()
-        inputStream.bufferedReader().useLines { lines ->
-            lines.forEach {
-                dictionary.add(it)
-            }
+    // CameraX Functions
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+    private fun requestPermissions() {
+        requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        if (this::ortSession.isInitialized) {
+            ortSession.close()
         }
-        return dictionary
+        ortEnv.close()
+        cameraExecutor.shutdown()
+    }
+    companion object {
+        const val TAG = "CameraXApp"
+        const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     }
 }

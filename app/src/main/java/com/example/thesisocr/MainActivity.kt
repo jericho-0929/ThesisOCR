@@ -56,7 +56,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textView: TextView
     // Everything else.
     private lateinit var modelProcessing: ModelProcessing
-
+    private val imageProcessing = ImageProcessing()
+    private val textRecognition = PaddleRecognition()
+    private val textDetection = PaddleDetector()
+    private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        displayImageFromUri(uri)
+        if (uri != null){
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
+            Log.d("Photo Picker", "Photo selected: $uri")
+            debugGetModelInfo(1)
+            debugGetModelInfo(2)
+            // imagePreProcess(bitmap)
+            neuralNetProcess(bitmap)
+        } else {
+            Log.d("Photo Picker", "No photo selected.")
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
         OpenCVLoader.initLocal()

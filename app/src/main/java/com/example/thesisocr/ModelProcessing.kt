@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtSession
 import ai.onnxruntime.providers.NNAPIFlags
 import android.content.res.Resources
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
@@ -14,14 +15,15 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+    private val resizeWidth = 1280
+    private val resizeHeight = 960
 
     data class ModelResults (
         var detectionResult: PaddleDetector.Result,
-        var recognitionResult: PaddleRecognition.TextResult
+        var recognitionResult: PaddleRecognition.TextResult,
+        var recogInputBitmapList: MutableList<Bitmap>
     )
     fun processImage(inputBitmap: Bitmap): ModelResults {
-        val resizeWidth = 1280
-        val resizeHeight = 960
         // val resizedBitmap = ImageProcessing().applyMask(ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight), resources)
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
         // Image pre-processing.
@@ -33,14 +35,31 @@ class ModelProcessing(private val resources: Resources) {
         val recognitionResult =
             PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
         ortSession.close()
-        return ModelResults(detectionResult, recognitionResult)
+        return ModelResults(detectionResult, recognitionResult, recogInputBitmapList)
     }
     fun warmupThreads(){
+        val warmupCycles = 3
         Log.d("Warm-up", "Warming up threads.")
-        // Empty bitmaps for warm-up.
-        val warmupBitmap = Bitmap.createBitmap(1280, 960, Bitmap.Config.ARGB_8888)
-        // Only run detection model.
-        PaddleDetector().detect(warmupBitmap, ortEnv, ortSession)
+        // Sample bitmap for warm-up.
+        val warmupBitmap = ImageProcessing().rescaleBitmap(
+            BitmapFactory.decodeResource(resources, R.drawable.philsys_id_official_sample),
+            resizeWidth, resizeHeight
+        )
+        for (i in 0 until warmupCycles){
+            // Run detection on warm-up bitmap.
+            ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+            val warmupDetection = PaddleDetector().detect(
+                ImageProcessing().processImageForDetection(warmupBitmap)
+                , ortEnv, ortSession)
+            ortSession.close()
+            // Run recognition on warm-up bitmap.
+            ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
+            val warmupRecognition = PaddleRecognition().recognize(
+                cropAndProcessBitmapList(warmupBitmap, warmupDetection),
+                ortEnv, ortSession, modelVocab
+            )
+            ortSession.close()
+        }
         Log.d("Warm-up", "Threads warmed up.")
     }
     fun getModelInfo(modelSelect: Int){

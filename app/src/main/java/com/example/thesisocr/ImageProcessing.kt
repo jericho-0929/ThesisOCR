@@ -24,9 +24,9 @@ class ImageProcessing {
     // Detection pre-processing functions.
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
-            //sectionRemoval(
+            sectionRemoval(
                 convertToGrayscaleMat(inputBitmap)
-            //)
+            )
         )
         val sharpenedMat = imageSharpening(imageBlur(blurredMat))
         val openedMat = opening(sharpenedMat)
@@ -104,7 +104,7 @@ class ImageProcessing {
     fun applyMask(inputBitmap: Bitmap, resources: Resources): Bitmap {
         // Use philsys_mask.jpg as the mask.
         val maskBitmap = rescaleBitmap(
-            BitmapFactory.decodeResource(resources, R.drawable.philsys_mask),
+            BitmapFactory.decodeResource(resources, R.drawable.id_mask),
             inputBitmap.width,
             inputBitmap.height
         )

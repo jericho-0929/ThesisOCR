@@ -40,17 +40,38 @@
         app:srcCompat="@drawable/ic_launcher_foreground" />
 
     <TextView
+        android:id="@+id/inferenceView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="648dp"
+        android:scrollbars="vertical"
+        android:text="Hello world!"
+        app:layout_constraintBottom_toTopOf="@+id/btnCallCamera"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:text="Hello World\nText Results go here!"
         android:scrollbars="vertical"
+        android:text="Text Results go here!"
         app:layout_constraintBottom_toTopOf="@+id/btnCallCamera"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imageView"
         app:layout_constraintVertical_bias="1.0" />
+
+    <Button
+        android:id="@+id/debugSave"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/debug_save"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

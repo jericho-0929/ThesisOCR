@@ -115,35 +115,6 @@ class PaddleRecognition {
         }
         return transposedArray
     }
-    private fun padWidthDimensions(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>> {
-        // Width is the 4th dimension while height is the 3rd dimension.
-        val batchSize = inputArray.size
-        var maxWidth = inputArray[0][0][0].size
-        for (i in 0 until batchSize) {
-            for (j in 0 until 3) {
-                for (k in 0 until 48) {
-                    if (inputArray[i][j][k].size > maxWidth) {
-                        maxWidth = inputArray[i][j][k].size
-                    }
-                }
-            }
-        }
-        val paddedArray = Array(batchSize) { Array(3) { Array(48) { FloatArray(maxWidth) } } }
-        for (i in 0 until batchSize) {
-            for (j in 0 until 3) {
-                for (k in 0 until 48) {
-                    for (l in 0 until maxWidth) {
-                        if (l < inputArray[i][j][k].size) {
-                            paddedArray[i][j][k][l] = inputArray[i][j][k][l]
-                        } else {
-                            paddedArray[i][j][k][l] = 0.0f
-                        }
-                    }
-                }
-            }
-        }
-        return paddedArray
-    }
     // Coroutine helper functions
     private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): OrtSession.Result {
         val listOfStrings = mutableListOf<String>()

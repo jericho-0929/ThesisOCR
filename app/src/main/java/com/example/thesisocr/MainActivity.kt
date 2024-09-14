@@ -2,6 +2,7 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Context
@@ -54,24 +55,11 @@ class MainActivity : AppCompatActivity() {
     // UI Variables.
     private var imageView: ImageView? = null
     private lateinit var textView: TextView
+    private lateinit var inferenceView: TextView
     // Everything else.
     private lateinit var modelProcessing: ModelProcessing
-    private val imageProcessing = ImageProcessing()
-    private val textRecognition = PaddleRecognition()
-    private val textDetection = PaddleDetector()
-    private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        displayImageFromUri(uri)
-        if (uri != null){
-            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
-            Log.d("Photo Picker", "Photo selected: $uri")
-            debugGetModelInfo(1)
-            debugGetModelInfo(2)
-            // imagePreProcess(bitmap)
-            neuralNetProcess(bitmap)
-        } else {
-            Log.d("Photo Picker", "No photo selected.")
-        }
-    }
+    private lateinit var modelResults: ModelProcessing.ModelResults
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
         OpenCVLoader.initLocal()
@@ -97,8 +85,10 @@ class MainActivity : AppCompatActivity() {
         viewBinding = ActivityCameraBinding.inflate(layoutInflater)
         val textView = findViewById<TextView>(R.id.textView)
         textView.movementMethod = android.text.method.ScrollingMovementMethod()
+        // Button declarations
         val btnCallCamera = findViewById<Button>(R.id.btnCallCamera)
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
+        val btnDebugSave = findViewById<Button>(R.id.debugSave)
         imageView = findViewById(R.id.imageView)
 
         // Button Listeners
@@ -110,6 +100,11 @@ class MainActivity : AppCompatActivity() {
         btnCallCamera.setOnClickListener {
             startCameraActivity.launch(Intent(this, CameraActivity::class.java))
         }
+        // Debug Save Button
+        btnDebugSave.setOnClickListener {
+            debugSaveImages()
+        }
+
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
     // Variables with lazy initialization
@@ -152,7 +147,7 @@ class MainActivity : AppCompatActivity() {
     // Functions
     private fun processBitmap(bitmap: Bitmap) {
         // Process the image.
-        val modelResults = modelProcessing.processImage(bitmap)
+        modelResults = modelProcessing.processImage(bitmap)
         // Display the image and recognition results.
         displayImage(modelResults.detectionResult.outputBitmap)
         displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
@@ -165,6 +160,10 @@ class MainActivity : AppCompatActivity() {
             "Recognition Inference Time: ${modelResults.recognitionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
             , Toast.LENGTH_LONG
         ).show()
+        displayInferenceTime(
+            modelResults.detectionResult.inferenceTime.inWholeMilliseconds,
+            modelResults.recognitionResult.inferenceTime.inWholeMilliseconds
+        )
     }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE
@@ -176,18 +175,47 @@ class MainActivity : AppCompatActivity() {
     }
     private fun displayRecognitionResults(listOfStrings: MutableList<String>) {
         textView = findViewById(R.id.textView)
-        textView!!.visibility = View.VISIBLE
-        textView!!.text = "Recognition Results (Unordered):"
+        textView.visibility = View.VISIBLE
+        textView.text = "Recognition Results (Unordered):"
         for (string in listOfStrings) {
-            textView!!.append("\n")
-            textView!!.append(string)
+            textView.append("\n")
+            textView.append(string)
         }
     }
+    private fun displayInferenceTime(detectionInferenceTime: Long, recognitionInferenceTime: Long) {
+        inferenceView = findViewById(R.id.inferenceView)
+        inferenceView.visibility = View.VISIBLE
+        inferenceView.text = "Detection inference time: $detectionInferenceTime ms"
+        inferenceView.append("\nRecognition inference time: $recognitionInferenceTime ms")
+    }
     // Debug Functions
-    private fun saveImage(bitmap: Bitmap, filename: String){
+    private fun debugSaveImages(){
+        // Grab bitmap contents of modelProcessing.
+        val detectionBitmapMask = modelResults.detectionResult.outputMask
+        val detectionBitmap = modelResults.detectionResult.outputBitmap
+        val recognitionInputBitmapList = modelResults.recogInputBitmapList
+        // Save the images.
+        val yeetLocation = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString()
+        val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask.jpg")
+        val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result.jpg")
+        for (i in 0 until recognitionInputBitmapList.size){
+            val recognitionInputBool = saveImage(recognitionInputBitmapList[i], "$yeetLocation/recognition_input_$i.jpg")
+        }
+        if (detectionMaskBool && detectionOutputBool){
+            Toast.makeText(baseContext,
+                "Images saved to $yeetLocation.",
+                Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(baseContext,
+                "Image saving failed.",
+                Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun saveImage(bitmap: Bitmap, filename: String): Boolean {
         val fileOutputStream = FileOutputStream(filename)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
+        val saveBool = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
+        return saveBool
     }
     // CameraX Functions
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {

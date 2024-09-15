@@ -21,7 +21,12 @@ class ImageProcessing {
         Imgproc.cvtColor(inputMat, inputMat, Imgproc.COLOR_RGBA2BGR)
         return inputMat
     }
-    // Detection pre-processing functions.
+    // Detection pre-processing & post-processing functions.
+    fun processDetectionOutputMask(inputBitmap: Bitmap): Bitmap {
+        // Convert the bitmap to a Mat.
+        val inputMat = convertBitmapToMat(inputBitmap)
+        return convertToBitmap(dilation(inputMat, 10.0, 10.0))
+    }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
             sectionRemoval(
@@ -86,9 +91,9 @@ class ImageProcessing {
         Imgproc.filter2D(inputMat, sharpenedMat, -1, kernel)
         return sharpenedMat
     }
-    private fun dilation(inputMat: Mat): Mat {
+    fun dilation(inputMat: Mat, x: Double, y: Double): Mat {
         val dilatedMat = Mat()
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(x, y))
         Imgproc.dilate(inputMat, dilatedMat, kernel)
         return dilatedMat
     }

@@ -14,7 +14,9 @@ import java.util.EnumSet
 class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
-    private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+    // private var ortSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+    private var detSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+    private var recogSession: OrtSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
     private val resizeWidth = 1280
     private val resizeHeight = 960
 
@@ -27,14 +29,14 @@ class ModelProcessing(private val resources: Resources) {
         // val resizedBitmap = ImageProcessing().applyMask(ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight), resources)
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
         // Image pre-processing.
-        ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-        val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, ortSession)
-        ortSession.close()
+        // ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
+        val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, detSession)
+        // ortSession.close()
         val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
-        ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
+        // ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
         val recognitionResult =
-            PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
-        ortSession.close()
+            PaddleRecognition().recognize(recogInputBitmapList, ortEnv, recogSession, modelVocab)
+        // ortSession.close()
         return ModelResults(detectionResult, recognitionResult, recogInputBitmapList)
     }
     fun warmupThreads(){
@@ -47,23 +49,19 @@ class ModelProcessing(private val resources: Resources) {
         )
         for (i in 0 until warmupCycles){
             // Run detection on warm-up bitmap.
-            ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
             val warmupDetection = PaddleDetector().detect(
                 ImageProcessing().processImageForDetection(warmupBitmap)
-                , ortEnv, ortSession)
-            ortSession.close()
+                , ortEnv, detSession)
             // Run recognition on warm-up bitmap.
-            ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
             val warmupRecognition = PaddleRecognition().recognize(
                 cropAndProcessBitmapList(warmupBitmap, warmupDetection),
-                ortEnv, ortSession, modelVocab
+                ortEnv, recogSession, modelVocab
             )
-            ortSession.close()
         }
         Log.d("Warm-up", "Threads warmed up.")
     }
     fun getModelInfo(modelSelect: Int){
-        debugGetModelInfo(modelSelect)
+        //debugGetModelInfo(modelSelect)
     }
     private fun ortSessionConfigurations(): OrtSession.SessionOptions {
         val sessionOptions = OrtSession.SessionOptions()
@@ -109,7 +107,7 @@ class ModelProcessing(private val resources: Resources) {
         }
         return dictionary
     }
-    private fun gatherModelOutputInputInfo(modelToLoad: ByteArray){
+/*    private fun gatherModelOutputInputInfo(modelToLoad: ByteArray){
         ortSession = ortEnv.createSession(modelToLoad, OrtSession.SessionOptions())
         val inputInfo = ortSession.inputInfo
         val outputInfo = ortSession.outputInfo
@@ -119,5 +117,5 @@ class ModelProcessing(private val resources: Resources) {
     private fun debugGetModelInfo(modelSelect: Int){
         val selectedModelByteArray = selectModel(modelSelect)
         gatherModelOutputInputInfo(selectedModelByteArray)
-    }
+    }*/
 }

@@ -38,7 +38,7 @@ class PaddleRecognition {
         val batchSize = listOfInputBitmaps.size
         // Add an additional dimension for the batch size at the beginning.
         // Convert all list Bitmaps to Float Array.
-        var inputArray: Array<Array<Array<FloatArray>>> =
+        val inputArray: Array<Array<Array<FloatArray>>> =
             Array(batchSize) { bitmapToFloatArray(listOfInputBitmaps[it]) }
         // Pad the width dimensions to the maximum width.
         // inputArray = padWidthDimensions(inputArray)
@@ -117,7 +117,6 @@ class PaddleRecognition {
     }
     // Coroutine helper functions
     private fun performInference(chunk: List<Array<Array<FloatArray>>>, ortSession: OrtSession, ortEnvironment: OrtEnvironment): OrtSession.Result {
-        val listOfStrings = mutableListOf<String>()
         // Convert chunk to Array<Array<Array<FloatArray>>>.
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, chunk.toTypedArray())
         Log.d("PaddleRecognition", "Input Tensor Info: ${inputTensor.info}")

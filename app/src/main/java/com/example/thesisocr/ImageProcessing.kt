@@ -25,7 +25,7 @@ class ImageProcessing {
     fun processDetectionOutputMask(inputBitmap: Bitmap): Bitmap {
         // Convert the bitmap to a Mat.
         val inputMat = convertBitmapToMat(inputBitmap)
-        return convertToBitmap(dilation(inputMat, 10.0, 10.0))
+        return convertToBitmap(erosion(inputMat, 10.0, 10.0))
     }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
@@ -34,8 +34,7 @@ class ImageProcessing {
             )
         )
         val sharpenedMat = imageSharpening(imageBlur(blurredMat))
-        val openedMat = opening(sharpenedMat)
-        return convertToBitmap(openedMat)
+        return convertToBitmap(sharpenedMat)
     }
     // Blacken out a percentage of the image's top and of the image's right.
     private fun sectionRemoval(inputMat: Mat): Mat {
@@ -64,7 +63,7 @@ class ImageProcessing {
         // Blur twice.
         val blurredMat = imageBlur(imageBlur(grayMat))
         val thresholdMat = imageThresholding(blurredMat)
-        val openedMat = opening(thresholdMat)
+        val openedMat = opening(thresholdMat, 3.0, 3.0)
         return convertToBitmap(imageBlur(openedMat))
     }
     private fun convertToGrayscaleMat(inputBitmap: Bitmap): Mat {
@@ -97,11 +96,17 @@ class ImageProcessing {
         Imgproc.dilate(inputMat, dilatedMat, kernel)
         return dilatedMat
     }
-    fun opening(inputMat: Mat): Mat {
+    fun opening(inputMat: Mat, x: Double, y: Double): Mat {
         val openedMat = Mat()
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(x,y))
         Imgproc.morphologyEx(inputMat, openedMat, Imgproc.MORPH_OPEN, kernel)
         return openedMat
+    }
+    fun erosion(inputMat: Mat, x: Double, y: Double): Mat {
+        val erodedMat = Mat()
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(x, y))
+        Imgproc.erode(inputMat, erodedMat, kernel)
+        return erodedMat
     }
     fun contourFiltering() {
         // TODO: Implement contour filtering.

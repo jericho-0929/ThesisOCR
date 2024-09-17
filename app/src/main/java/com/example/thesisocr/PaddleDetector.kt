@@ -104,7 +104,7 @@ class PaddleDetector {
             ImageProcessing().opening(
                 ImageProcessing().convertBitmapToMat(
                     stitchBitmapChunks(fixedBitmapList)
-                )
+                ), 5.0, 5.0
             )
         )
         // Creation of bounding boxes from the outputBitmap.
@@ -143,7 +143,7 @@ class PaddleDetector {
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
     // Hardcode the number of chunks to 4.
-    private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
+/*    private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
         // Split the inputBitmap into chunks conforming to a quadrant.
         // Ensure chunk width and height are multiples of 32.
         val chunkList = mutableListOf<Bitmap>()
@@ -156,8 +156,8 @@ class PaddleDetector {
             }
         }
         return chunkList
-    }
-/*    // Old splitBitmapIntoChunks function.
+    }*/
+    // Old splitBitmapIntoChunks function.
     private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
         // Split the inputBitmap into chunks.
         val chunkList = mutableListOf<Bitmap>()
@@ -168,7 +168,7 @@ class PaddleDetector {
             chunkList.add(chunk)
         }
         return chunkList
-    }*/
+    }
     private fun processRawOutput(rawOutput: OrtSession.Result, inputBitmap: Bitmap): Bitmap {
         // Feature map from the model's output.
         val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
@@ -184,7 +184,7 @@ class PaddleDetector {
         return outputBitmap
     }
     // Stitch the output bitmaps.
-    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
+/*    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
         // BitmapList is in the order: Top-Left, Bottom-Left, Top-Right, Bottom-Right
         // Stitch in the order: Top-Left, Top-Right, Bottom-Left, Bottom-Right
         val firstBitmap = bitmapList[0]
@@ -199,8 +199,8 @@ class PaddleDetector {
         // Draw the bottom-right bitmap.
         canvas.drawBitmap(bitmapList[3], firstBitmap.width.toFloat(), firstBitmap.height.toFloat(), null)
         return outputBitmap
-    }
-/*    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
+    }*/
+    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
         val firstBitmap = bitmapList[0]
         val outputBitmap = Bitmap.createBitmap(firstBitmap.width * bitmapList.size, firstBitmap.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(outputBitmap)
@@ -208,7 +208,7 @@ class PaddleDetector {
             canvas.drawBitmap(bitmapList[i], i * firstBitmap.width.toFloat(), 0f, null)
         }
         return outputBitmap
-    }*/
+    }
     // Close horizontal gaps by extending non-black pixels closest to bitmap edges.
     private fun closeHorizontalGapsRightOnly(inputBitmap: Bitmap, pixelDistance: Int): Bitmap {
         val width = inputBitmap.width
@@ -298,7 +298,7 @@ class PaddleDetector {
                         }
                     }
                     // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 25))
+                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 20))
                 }
             }
         }

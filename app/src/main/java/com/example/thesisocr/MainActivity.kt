@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity() {
         val detectionBitmap = modelResults.detectionResult.outputBitmap
         val recognitionInputBitmapList = modelResults.recogInputBitmapList
         // Save the images.
-        val yeetLocation = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString()
+        val yeetLocation = "/storage/emulated/0/Documents"
         val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask.jpg")
         val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result.jpg")
         for (i in 0 until recognitionInputBitmapList.size){

@@ -53,7 +53,7 @@ class PaddleDetector {
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 640, 480)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, bitmapWidth, bitmapHeight)
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the inputArray into chunks.
         val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {

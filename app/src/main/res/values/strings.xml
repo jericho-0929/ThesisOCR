@@ -5,4 +5,7 @@
     <string name="take_photo">Take Photo</string>
     <string name="exit_camera">Exit Camera</string>
     <string name="debug_save">Debug Save</string>
+    <string name="camera_message_1">Ensure ID covers much \nof the preview.</string>
+    <string name="camera_message_2">Photo taken, let go and \nwait for processing</string>
+
 </resources>

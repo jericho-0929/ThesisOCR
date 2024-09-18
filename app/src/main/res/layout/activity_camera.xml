@@ -6,64 +6,80 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <FrameLayout
-        android:id="@+id/frameLayout"
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewFinder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        app:layout_constraintBottom_toTopOf="@id/cameraMessage"
+        app:layout_constraintDimensionRatio="3:4"
+        >
 
-        <androidx.camera.view.PreviewView
-            android:id="@+id/viewFinder"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintDimensionRatio="3:4"
-            app:layout_constraintTop_toTopOf="parent">
+    </androidx.camera.view.PreviewView>
 
-        </androidx.camera.view.PreviewView>
-    </FrameLayout>
+    <Button
+    android:id="@+id/btnExitCamera"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="43dp"
+    android:layout_marginBottom="16dp"
+    android:text="@string/exit_camera"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintStart_toStartOf="parent" />
 
-    <ImageView
-        android:id="@+id/rect_image"
-        android:layout_width="520dp"
-        android:layout_height="340dp"
-        android:src="@drawable/rectangle_guide"
+    <TextView
+        android:id="@+id/cameraMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="49dp"
+        android:layout_marginBottom="16dp"
+        android:gravity="center"
+        android:text="Ensure ID covers much of the preview"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.5" />
+        app:layout_constraintEnd_toStartOf="@id/btnTakePhoto"
+        app:layout_constraintStart_toEndOf="@id/btnExitCamera" />
+
+    <Button
+        android:id="@+id/btnTakePhoto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="43dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/take_photo"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+    <!--
     <LinearLayout
         android:id="@+id/linearLayout"
-        android:layout_width="358dp"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:divider="@drawable/divider"
+        android:layoutMode="clipBounds"
         android:orientation="horizontal"
+        android:showDividers="middle"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent">
 
         <Button
+            android:id="@+id/btnExitCamera"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="#000000"
+            android:text="@string/exit_camera"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:textColor="@color/white" />
+
+        <Button
             android:id="@+id/btnTakePhoto"
-            style="?android:attr/buttonBarButtonStyle"
+            style="@style/Widget.Material3.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="#000000"
             android:text="@string/take_photo"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:textColor="@color/white" />
-
-        <Button
-            android:id="@+id/btnExitCamera"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#000000"
-            android:text="@string/exit_camera"
-            android:textAppearance="@style/TextAppearance.AppCompat.Large"
-            android:textColor="@color/white" />
-    </LinearLayout>
+    </LinearLayout>-->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

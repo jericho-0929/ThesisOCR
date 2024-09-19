@@ -148,22 +148,32 @@ class MainActivity : AppCompatActivity() {
     private fun processBitmap(bitmap: Bitmap) {
         // Process the image.
         modelResults = modelProcessing.processImage(bitmap)
-        // Display the image and recognition results.
-        displayImage(modelResults.detectionResult.outputBitmap)
-        displayRecognitionResults(modelResults.recognitionResult.listOfStrings)
-        // Display inference times to the user.
-        Toast.makeText(baseContext,
-            "Detection Inference Time: ${modelResults.detectionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
-            , Toast.LENGTH_LONG
-        ).show()
-        Toast.makeText(baseContext,
-            "Recognition Inference Time: ${modelResults.recognitionResult.inferenceTime.inWholeMilliseconds.toInt()} ms"
-            , Toast.LENGTH_LONG
-        ).show()
-        displayInferenceTime(
-            modelResults.detectionResult.inferenceTime.inWholeMilliseconds,
-            modelResults.recognitionResult.inferenceTime.inWholeMilliseconds
-        )
+        // Check if recognition result is null.
+        if (modelResults.recognitionResult == null){
+            Toast.makeText(baseContext,
+                "Image not good. Please try again.",
+                Toast.LENGTH_SHORT).show()
+            return
+        } else {
+            // Display the image and recognition results.
+            displayImage(modelResults.detectionResult.outputBitmap)
+            displayRecognitionResults(modelResults.recognitionResult!!.listOfStrings)
+            // Display inference times to the user.
+            Toast.makeText(
+                baseContext,
+                "Detection Inference Time: ${modelResults.detectionResult.inferenceTime.inWholeMilliseconds.toInt()} ms",
+                Toast.LENGTH_LONG
+            ).show()
+            Toast.makeText(
+                baseContext,
+                "Recognition Inference Time: ${modelResults.recognitionResult!!.inferenceTime.inWholeMilliseconds.toInt()} ms",
+                Toast.LENGTH_LONG
+            ).show()
+            displayInferenceTime(
+                modelResults.detectionResult.inferenceTime.inWholeMilliseconds,
+                modelResults.recognitionResult!!.inferenceTime.inWholeMilliseconds
+            )
+        }
     }
     private fun displayImage(bitmap: Bitmap?) {
         imageView!!.visibility = View.VISIBLE

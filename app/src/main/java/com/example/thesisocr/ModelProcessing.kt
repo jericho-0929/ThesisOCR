@@ -8,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Environment
 import android.util.Log
-import android.widget.Toast
 import java.util.EnumSet
 
 class ModelProcessing(private val resources: Resources) {
@@ -20,9 +19,9 @@ class ModelProcessing(private val resources: Resources) {
     private val resizeWidth = 1280
     private val resizeHeight = 960
 
-    data class ModelResults (
+    data class ModelResults(
         var detectionResult: PaddleDetector.Result,
-        var recognitionResult: PaddleRecognition.TextResult,
+        var recognitionResult: PaddleRecognition.TextResult?,
         var recogInputBitmapList: MutableList<Bitmap>
     )
     fun processImage(inputBitmap: Bitmap): ModelResults {
@@ -31,6 +30,10 @@ class ModelProcessing(private val resources: Resources) {
         // Image pre-processing.
         // ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, detSession)
+        // Cancel entire process if bounding box list is less than 12 and more than 13.
+        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 13){
+            return ModelResults(detectionResult, null, mutableListOf())
+        }
         // ortSession.close()
         val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
         // ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
@@ -91,14 +94,14 @@ class ModelProcessing(private val resources: Resources) {
     }
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {
-            1 -> R.raw.det_model
-            2 -> R.raw.latin_rec_model
+            1 -> R.raw.det_model // Detection
+            2 -> R.raw.en_v3_synth4_20epoch // Recognition
             else -> R.raw.det_model
         }
         return resources.openRawResource(modelPackagePath).readBytes()
     }
     private fun loadDictionary(): List<String> {
-        val inputStream = resources.openRawResource(R.raw.latin_dict)
+        val inputStream = resources.openRawResource(R.raw.en_dict)
         val dictionary = mutableListOf<String>()
         inputStream.bufferedReader().useLines { lines ->
             lines.forEach {

@@ -140,6 +140,19 @@ class PaddleDetector {
         // Return the output as a Bitmap.
         return output
     }
+
+    /** Scratch code. */
+    private fun orderBoundingBoxes(boundingBoxList: List<BoundingBox>): List<BoundingBox> {
+        // Order bounding boxes from left to right.
+        return boundingBoxList.sortedBy { it.x }
+    }
+    private val coordinatesList: List<BoundingBox> = listOf(
+        BoundingBox(0, 0, 100, 100),
+        BoundingBox(200, 0, 100, 100),
+        BoundingBox(100, 0, 100, 100),
+        BoundingBox(300, 0, 100, 100)
+    )
+
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
     // Hardcode the number of chunks to 4.

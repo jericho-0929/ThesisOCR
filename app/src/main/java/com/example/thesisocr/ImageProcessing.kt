@@ -25,7 +25,8 @@ class ImageProcessing {
     fun processDetectionOutputMask(inputBitmap: Bitmap): Bitmap {
         // Convert the bitmap to a Mat.
         val inputMat = convertBitmapToMat(inputBitmap)
-        return convertToBitmap(erosion(inputMat, 10.0, 10.0))
+        //return convertToBitmap(erosion(inputMat, 5.0, 5.0))
+        return convertToBitmap(inputMat)
     }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(

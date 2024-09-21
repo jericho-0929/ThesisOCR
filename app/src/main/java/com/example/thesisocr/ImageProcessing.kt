@@ -25,25 +25,24 @@ class ImageProcessing {
     fun processDetectionOutputMask(inputBitmap: Bitmap): Bitmap {
         // Convert the bitmap to a Mat.
         val inputMat = convertBitmapToMat(inputBitmap)
-        //return convertToBitmap(erosion(inputMat, 5.0, 5.0))
-        return convertToBitmap(inputMat)
+        val erosionMat = erosion(inputMat, 5.0, 5.0)
+        return convertToBitmap(dilation(erosionMat, 3.0, 3.0))
     }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
         val blurredMat = imageBlur(
             sectionRemoval(
-                convertToGrayscaleMat(inputBitmap)
+                convertBitmapToMat(inputBitmap)
             )
         )
-        val sharpenedMat = imageSharpening(imageBlur(blurredMat))
-        return convertToBitmap(sharpenedMat)
+        return convertToBitmap((blurredMat))
     }
     // Blacken out a percentage of the image's top and of the image's right.
     private fun sectionRemoval(inputMat: Mat): Mat {
         // Channel count is 3.
         val width = inputMat.width()
         val height = inputMat.height()
-        val topSectionHeight = (height * 0.30).toInt()
-        val rightSectionWidth = (width * 0.10).toInt()
+        val topSectionHeight = (height * 0.40).toInt()
+        val rightSectionWidth = (width * 0.20).toInt()
         // Whiten out the topmost section.
         for (i in 0 until topSectionHeight) {
             for (j in 0 until width) {
@@ -128,7 +127,7 @@ class ImageProcessing {
         return convertToBitmap(outputMat)
     }
     fun convertToBitmap(inputMat: Mat): Bitmap {
-        val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)
+        val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.RGB_565)
         Utils.matToBitmap(inputMat, outputBitmap)
         return outputBitmap
     }

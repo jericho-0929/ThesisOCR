@@ -85,7 +85,7 @@ class PaddleDetector {
         }
         // Fix the output bitmaps by closing horizontal gaps.
         val fixedBitmapList = mutableListOf<Bitmap>()
-        val pixelDistance = 35
+        val pixelDistance = rawBitmapList[0].width / 4
         for (i in resultList.indices) {
             // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
             when (i) {
@@ -120,7 +120,7 @@ class PaddleDetector {
         return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
     }
     fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 640, 480)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960)
         val inputArray = convertImageToFloatArray(resizedBitmap)
         val rawOutput = runModel(inputArray, ortEnvironment, ortSession)
         val outputBitmap = processRawOutput(rawOutput, resizedBitmap)

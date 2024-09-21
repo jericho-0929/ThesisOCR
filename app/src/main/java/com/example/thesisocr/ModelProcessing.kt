@@ -31,7 +31,7 @@ class ModelProcessing(private val resources: Resources) {
         // ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, detSession)
         // Cancel entire process if bounding box list is less than 12 and more than 13.
-        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 13){
+        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 14){
             return ModelResults(detectionResult, null, mutableListOf())
         }
         // ortSession.close()
@@ -47,7 +47,7 @@ class ModelProcessing(private val resources: Resources) {
         Log.d("Warm-up", "Warming up threads.")
         // Sample bitmap for warm-up.
         val warmupBitmap = ImageProcessing().rescaleBitmap(
-            BitmapFactory.decodeResource(resources, R.drawable.philsys_id_official_sample),
+            BitmapFactory.decodeResource(resources, R.drawable.philsys_sample),
             resizeWidth, resizeHeight
         )
         for (i in 0 until warmupCycles){

@@ -29,11 +29,10 @@ class ModelProcessing(private val resources: Resources) {
         val resizedBitmap = ImageProcessing().rescaleBitmap(
             inputBitmap
             , resizeWidth, resizeHeight)
-        // Image pre-processing.
         // ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detectSingle(resizedBitmap, ortEnv, detSession)
         // Cancel entire process if bounding box list is less than 12 and more than 13.
-        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 13){
+        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 25){
             return ModelResults(detectionResult, null, mutableListOf())
         }
         // ortSession.close()
@@ -76,6 +75,7 @@ class ModelProcessing(private val resources: Resources) {
         // Set NNAPI flags.
         val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_DISABLED)
         // Add NNAPI
+        // NOTE: NNAPI only activates when the ONNX model's tensors are fixed, NOT dynamic.
         sessionOptions.addNnapi(nnapiFlags)
         // Execution Mode and Optimization Level
         sessionOptions.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.PARALLEL)
@@ -99,7 +99,7 @@ class ModelProcessing(private val resources: Resources) {
     }
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {
-            1 -> R.raw.det_model // Detection
+            1 -> R.raw.en_v3_det_philsys_1// Detection
             2 -> R.raw.en_v3_synth4_20epoch // Recognition
             else -> R.raw.det_model
         }

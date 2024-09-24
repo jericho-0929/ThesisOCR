@@ -59,10 +59,11 @@ class PaddleDetector {
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, bitmapWidth, bitmapHeight)
-
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
+        // Preprocess the resizedBitmap for detection.
+        val preprocessedBitmap = ImageProcessing().processImageForDetection(resizedBitmap)
         // Split the inputArray into chunks.
-        val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {
+        val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(preprocessedBitmap).map {
             convertImageToFloatArray(it)
         }
         val referenceChunks = splitBitmapIntoChunks(resizedBitmap)
@@ -87,7 +88,7 @@ class PaddleDetector {
         Log.d("PaddleDetector", "Inference complete.")
         val rawBitmapList = mutableListOf<Bitmap>()
         for (i in resultList.indices) {
-            rawBitmapList.add(processRawOutput(resultList[i], referenceChunks[i]))
+            rawBitmapList.add(processRawOutput(resultList[i]))
         }
         // Fix the output bitmaps by closing horizontal gaps.
         val fixedBitmapList = mutableListOf<Bitmap>()
@@ -95,9 +96,9 @@ class PaddleDetector {
         for (i in resultList.indices) {
             // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
             when (i) {
-                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(processRawOutput(resultList[i], referenceChunks[i]), pixelDistance))
-                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(processRawOutput(resultList[i], referenceChunks[i]), pixelDistance))
-                else -> fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i], referenceChunks[i]), pixelDistance))
+                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(processRawOutput(resultList[i]), pixelDistance))
+                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(processRawOutput(resultList[i]), pixelDistance))
+                else -> fixedBitmapList.add(closeHorizontalGaps(processRawOutput(resultList[i]), pixelDistance))
             }
         }
         // Stitch the output bitmaps together
@@ -125,15 +126,18 @@ class PaddleDetector {
     }
     fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         // Resize bitmap
-        val resizedBitmap = ImageProcessing().processImageForDetection(ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960))
-        // Convert to FloatArray
-        val inputArray = convertImageToFloatArray(resizedBitmap)
-        val normalizedArray = normalizeFloatArray(inputArray)
-        val debugBitmap = convertFloatArrayToImage(normalizedArray)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960)
+/*        val preprocessedBitmap = ImageProcessing().processImageForDetection(resizedBitmap)
+        val debugArray = convertImageToFloatArray(preprocessedBitmap)
+        val debugOutput = convertFloatArrayToImage(debugArray)*/
+        val normalizedArray = normalizeFloatArray(convertImageToFloatArray(inputBitmap))
+        val debugOutput = convertFloatArrayToImage(normalizedArray)
         // Start inference
-        val rawOutput = runModel(convertImageToFloatArray(debugBitmap), ortEnvironment, ortSession)
+        val rawOutput = runModel(normalizedArray, ortEnvironment, ortSession)
         // Process raw output
-        val outputBitmap = processRawOutput(rawOutput, resizedBitmap)
+        val outputBitmap = processRawOutput(rawOutput)
+        val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
+        debugSaveJSON(outputArray, "/storage/emulated/0/Download/output.json")
         // Generate bounding boxes
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
         // Render bounding boxes on the inputBitmap.
@@ -172,38 +176,8 @@ class PaddleDetector {
         // Return the output as a Bitmap.
         return output
     }
-
-    /** Scratch code. */
-    private fun orderBoundingBoxes(boundingBoxList: List<BoundingBox>): List<BoundingBox> {
-        // Order bounding boxes from left to right.
-        return boundingBoxList.sortedBy { it.x }
-    }
-    private val coordinatesList: List<BoundingBox> = listOf(
-        BoundingBox(0, 0, 100, 100),
-        BoundingBox(200, 0, 100, 100),
-        BoundingBox(100, 0, 100, 100),
-        BoundingBox(300, 0, 100, 100)
-    )
-
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
-    // Hardcode the number of chunks to 4.
-    /*
-    private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
-        // Split the inputBitmap into chunks conforming to a quadrant.
-        // Ensure chunk width and height are multiples of 32.
-        val chunkList = mutableListOf<Bitmap>()
-        val chunkWidth = inputBitmap.width / 2
-        val chunkHeight = inputBitmap.height / 2
-        for (i in 0 until 2) {
-            for (j in 0 until 2) {
-                val chunk = Bitmap.createBitmap(inputBitmap, i * chunkWidth, j * chunkHeight, chunkWidth, chunkHeight)
-                chunkList.add(chunk)
-            }
-        }
-        return chunkList
-    }*/
-    // Old splitBitmapIntoChunks function.
     private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
         // Split the inputBitmap into chunks.
         val chunkList = mutableListOf<Bitmap>()
@@ -215,24 +189,12 @@ class PaddleDetector {
         }
         return chunkList
     }
-    private fun processRawOutput(rawOutput: OrtSession.Result, inputBitmap: Bitmap): Bitmap {
+    private fun processRawOutput(rawOutput: OrtSession.Result): Bitmap {
         // Feature map from the model's output.
         val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
         // Convert rawOutput to a Bitmap
-        /* Old code for converting the outputArray to a Bitmap.
-        val outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        val multiplier = 255.0f
-        // Convert the outputArray to a Bitmap.
-        for (i in 0 until inputBitmap.width) {
-            for (j in 0 until inputBitmap.height) {
-                val pixelIntensity = (outputArray[0][0][i][j] * multiplier).toInt()
-                outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
-            }
-        }*/
+        debugSaveJSON(outputArray, "/storage/emulated/0/Download/output.json")
         val outputBitmap = fourDimensionArrayToRGBBitmap(outputArray)
-        // Save outputBitmap as a JSON file for debugging purposes.
-        // TODO: Remove this line for final package.
-        fourDimensionArrayToJSON(outputArray, "/storage/emulated/0/Download/output.json")
         return outputBitmap
     }
     private fun fourDimensionArrayToRGBBitmap(array: Array<Array<Array<FloatArray>>>): Bitmap {
@@ -264,22 +226,6 @@ class PaddleDetector {
         File(filename).writeText(jsonString)
     }
     // Stitch the output bitmaps.
-/*    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
-        // BitmapList is in the order: Top-Left, Bottom-Left, Top-Right, Bottom-Right
-        // Stitch in the order: Top-Left, Top-Right, Bottom-Left, Bottom-Right
-        val firstBitmap = bitmapList[0]
-        val outputBitmap = Bitmap.createBitmap(firstBitmap.width * 2, firstBitmap.height * 2, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(outputBitmap)
-        // Draw the top-left bitmap.
-        canvas.drawBitmap(bitmapList[0], 0f, 0f, null)
-        // Draw the top-right bitmap.
-        canvas.drawBitmap(bitmapList[2], firstBitmap.width.toFloat(), 0f, null)
-        // Draw the bottom-left bitmap.
-        canvas.drawBitmap(bitmapList[1], 0f, firstBitmap.height.toFloat(), null)
-        // Draw the bottom-right bitmap.
-        canvas.drawBitmap(bitmapList[3], firstBitmap.width.toFloat(), firstBitmap.height.toFloat(), null)
-        return outputBitmap
-    }*/
     private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
         val firstBitmap = bitmapList[0]
         val outputBitmap = Bitmap.createBitmap(firstBitmap.width * bitmapList.size, firstBitmap.height, Bitmap.Config.ARGB_8888)
@@ -407,9 +353,9 @@ class PaddleDetector {
         for (i in 0 until width) {
             for (j in 0 until height) {
                 val color = bitmap.getPixel(i, j)
-                floatArray[0][0][i][j] = color.red / 255.0f
-                floatArray[0][1][i][j] = color.green / 255.0f
-                floatArray[0][2][i][j] = color.blue / 255.0f
+                floatArray[0][0][i][j] = color.red.toFloat() / 255.0f
+                floatArray[0][1][i][j] = color.green.toFloat() / 255.0f
+                floatArray[0][2][i][j] = color.blue.toFloat() / 255.0f
             }
         }
         return floatArray
@@ -465,5 +411,10 @@ class PaddleDetector {
         val fileOutputStream = FileOutputStream(filename)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
+    }
+    private fun debugSaveJSON(inputArray: Array<Array<Array<FloatArray>>>, filename: String) {
+        val gson = Gson()
+        val jsonString = gson.toJson(inputArray)
+        File(filename).writeText(jsonString)
     }
 }

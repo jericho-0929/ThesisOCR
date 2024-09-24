@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(baseContext,
             "Initializing models.",
             Toast.LENGTH_SHORT).show()
-        modelProcessing.warmupThreads()
+        //modelProcessing.warmupThreads()
         // Model Info
         modelProcessing.getModelInfo(1)
         modelProcessing.getModelInfo(2)

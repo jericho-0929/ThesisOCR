@@ -24,6 +24,11 @@ import java.util.Collections
 import kotlin.time.Duration
 import kotlin.time.measureTime
 
+import com.google.gson.Gson
+import java.io.File
+import kotlin.math.pow
+import kotlin.math.sqrt
+
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
  */
@@ -54,6 +59,7 @@ class PaddleDetector {
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
         val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, bitmapWidth, bitmapHeight)
+
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
         // Split the inputArray into chunks.
         val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {
@@ -101,11 +107,9 @@ class PaddleDetector {
             )
         )
         val outputBitmap = ImageProcessing().convertToBitmap(
-            ImageProcessing().opening(
                 ImageProcessing().convertBitmapToMat(
                     stitchBitmapChunks(fixedBitmapList)
-                ), 5.0, 5.0
-            )
+                )
         )
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
@@ -120,13 +124,41 @@ class PaddleDetector {
         return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
     }
     fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960)
+        // Resize bitmap
+        val resizedBitmap = ImageProcessing().processImageForDetection(ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960))
+        // Convert to FloatArray
         val inputArray = convertImageToFloatArray(resizedBitmap)
-        val rawOutput = runModel(inputArray, ortEnvironment, ortSession)
+        val normalizedArray = normalizeFloatArray(inputArray)
+        val debugBitmap = convertFloatArrayToImage(normalizedArray)
+        // Start inference
+        val rawOutput = runModel(convertImageToFloatArray(debugBitmap), ortEnvironment, ortSession)
+        // Process raw output
         val outputBitmap = processRawOutput(rawOutput, resizedBitmap)
+        // Generate bounding boxes
         val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
+        // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
+        // Return the result.
         return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
+    }
+    private fun normalizeFloatArray(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>>{
+        // Normalize the inputArray through the use of mean and standard deviation.
+        // Dimensions: (Batch Size, Channels, Width, Height)
+        val scale = 1/255.0f
+        val width = inputArray[0][0].size
+        val height = inputArray[0][0][0].size
+        val normalizedArray = Array(1) { Array(3) { Array(width) { FloatArray(height) } } }
+        // Mean and standard deviation values for each channel.
+        val meanValues = floatArrayOf(0.615f,0.667f,0.724f)
+        val stdValues = floatArrayOf(0.232f,0.240f,0.240f)
+        for (k in 0 until 3) {
+            for (i in 0 until width) {
+                for (j in 0 until height) {
+                    normalizedArray[0][k][i][j] = (inputArray[0][k][i][j] * scale - meanValues[k]) / stdValues[k]
+                }
+            }
+        }
+        return normalizedArray
     }
     // Pass one chunk to the following function.
     private fun runModel(inputArray: Array<Array<Array<FloatArray>>>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): OrtSession.Result {
@@ -156,7 +188,8 @@ class PaddleDetector {
     // Multiprocessing (coroutine) helper functions.
     // Split inputBitmap into sequential chunks.
     // Hardcode the number of chunks to 4.
-/*    private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
+    /*
+    private fun splitBitmapIntoChunks(inputBitmap: Bitmap): List<Bitmap> {
         // Split the inputBitmap into chunks conforming to a quadrant.
         // Ensure chunk width and height are multiples of 32.
         val chunkList = mutableListOf<Bitmap>()
@@ -186,15 +219,49 @@ class PaddleDetector {
         // Feature map from the model's output.
         val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
         // Convert rawOutput to a Bitmap
+        /* Old code for converting the outputArray to a Bitmap.
         val outputBitmap = Bitmap.createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        val multiplier = -255.0f * 2.0f
+        val multiplier = 255.0f
+        // Convert the outputArray to a Bitmap.
         for (i in 0 until inputBitmap.width) {
             for (j in 0 until inputBitmap.height) {
                 val pixelIntensity = (outputArray[0][0][i][j] * multiplier).toInt()
                 outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
             }
+        }*/
+        val outputBitmap = fourDimensionArrayToRGBBitmap(outputArray)
+        // Save outputBitmap as a JSON file for debugging purposes.
+        // TODO: Remove this line for final package.
+        fourDimensionArrayToJSON(outputArray, "/storage/emulated/0/Download/output.json")
+        return outputBitmap
+    }
+    private fun fourDimensionArrayToRGBBitmap(array: Array<Array<Array<FloatArray>>>): Bitmap {
+        val width = array[0][0].size
+        val height = array[0][0][0].size
+        // Base conversion on the minimum and maximum values of the array.
+        val outputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        var minVal = Float.MAX_VALUE
+        var maxVal = Float.MIN_VALUE
+        // Find the minimum and maximum values in the array.
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                minVal = minOf(minVal, array[0][0][i][j])
+                maxVal = maxOf(maxVal, array[0][0][i][j])
+            }
+        }
+        // Convert the array to a Bitmap.
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val pixelIntensity = ((array[0][0][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
+                outputBitmap.setPixel(i, j, Color.rgb(pixelIntensity, pixelIntensity, pixelIntensity))
+            }
         }
         return outputBitmap
+    }
+    private fun fourDimensionArrayToJSON(array: Array<Array<Array<FloatArray>>>, filename: String) {
+        val gson = Gson()
+        val jsonString = gson.toJson(array)
+        File(filename).writeText(jsonString)
     }
     // Stitch the output bitmaps.
 /*    private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
@@ -311,7 +378,7 @@ class PaddleDetector {
                         }
                     }
                     // Create bounding box for the contiguous white region
-                    boundingBoxes.add(BoundingBox(minX - 10, minY - 10, maxX - minX + 35, maxY - minY + 20))
+                    boundingBoxes.add(BoundingBox(minX - 15, minY - 10, maxX - minX + 35, maxY - minY + 25))
                 }
             }
         }
@@ -346,6 +413,32 @@ class PaddleDetector {
             }
         }
         return floatArray
+    }
+    private fun convertFloatArrayToImage(floatArray: Array<Array<Array<FloatArray>>>): Bitmap {
+        val width = floatArray[0][0].size
+        val height = floatArray[0][0][0].size
+        val channels = floatArray[0].size
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        var minVal = 0
+        var maxVal = 0
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                for (k in 0 until channels) {
+                    minVal = minOf(minVal, floatArray[0][k][i][j].toInt())
+                    maxVal = maxOf(maxVal, floatArray[0][k][i][j].toInt())
+                }
+            }
+        }
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val red = ((floatArray[0][0][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
+                val green = ((floatArray[0][1][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
+                val blue = ((floatArray[0][2][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
+                val pixel = 0xff shl 24 or (red shl 16) or (green shl 8) or blue
+                bitmap.setPixel(i, j, pixel)
+            }
+        }
+        return bitmap
     }
     private fun convertToMonochrome(bitmap: Bitmap): Bitmap {
         val result = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)

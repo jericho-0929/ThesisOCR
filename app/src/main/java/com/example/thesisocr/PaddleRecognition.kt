@@ -84,6 +84,8 @@ class PaddleRecognition {
         }
         return TextResult(listOfStrings, inferenceTime)
     }
+    // 0.615f,0.667f,0.724f
+    // 0.232f,0.240f,0.240f)
     // Helper functions
     private fun rescaleBitmap(bitmap: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)

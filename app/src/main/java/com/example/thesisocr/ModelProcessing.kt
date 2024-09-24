@@ -26,12 +26,14 @@ class ModelProcessing(private val resources: Resources) {
     )
     fun processImage(inputBitmap: Bitmap): ModelResults {
         // val resizedBitmap = ImageProcessing().applyMask(ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight), resources)
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, resizeWidth, resizeHeight)
+        val resizedBitmap = ImageProcessing().rescaleBitmap(
+            inputBitmap
+            , resizeWidth, resizeHeight)
         // Image pre-processing.
         // ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-        val detectionResult = PaddleDetector().detect(ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, detSession)
+        val detectionResult = PaddleDetector().detectSingle(resizedBitmap, ortEnv, detSession)
         // Cancel entire process if bounding box list is less than 12 and more than 13.
-        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 14){
+        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 13){
             return ModelResults(detectionResult, null, mutableListOf())
         }
         // ortSession.close()
@@ -53,13 +55,16 @@ class ModelProcessing(private val resources: Resources) {
         for (i in 0 until warmupCycles){
             // Run detection on warm-up bitmap.
             val warmupDetection = PaddleDetector().detect(
-                ImageProcessing().processImageForDetection(warmupBitmap)
+                //ImageProcessing().processImageForDetection(warmupBitmap)
+                warmupBitmap
                 , ortEnv, detSession)
             // Run recognition on warm-up bitmap.
-            val warmupRecognition = PaddleRecognition().recognize(
-                cropAndProcessBitmapList(warmupBitmap, warmupDetection),
-                ortEnv, recogSession, modelVocab
-            )
+            if (warmupDetection.boundingBoxList.isNotEmpty()){
+                val warmupRecognition = PaddleRecognition().recognize(
+                    cropAndProcessBitmapList(warmupBitmap, warmupDetection),
+                    ortEnv, recogSession, modelVocab
+                )
+            }
         }
         Log.d("Warm-up", "Threads warmed up.")
     }

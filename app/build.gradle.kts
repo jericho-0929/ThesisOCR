@@ -41,6 +41,8 @@ android {
 }
 
 dependencies {
+    // Gson
+    implementation("com.google.code.gson:gson:2.10")
     // CameraX
     val cameraxVersion = "1.3.4"
     implementation("androidx.camera:camera-core:$cameraxVersion")

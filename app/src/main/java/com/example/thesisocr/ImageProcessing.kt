@@ -32,12 +32,13 @@ class ImageProcessing {
         return convertToBitmap(dilation(inputMat, 3.0, 3.0))
     }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
-        val blurredMat = imageBlur(
+        val thresholdMat = thresholdBitmap(inputBitmap)
+        val blurredMat = imageBlur(thresholdMat)
+        return convertToBitmap(
             //sectionRemoval(
-                convertToGrayscaleMat(inputBitmap)
+                blurredMat
             //)
         )
-        return convertToBitmap((blurredMat))
     }
     fun invertImage(inputBitmap: Bitmap): Bitmap {
         val inputMat = convertBitmapToMat(inputBitmap)

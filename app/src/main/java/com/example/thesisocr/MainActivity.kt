@@ -75,10 +75,10 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(baseContext,
             "Initializing models.",
             Toast.LENGTH_SHORT).show()
-        //modelProcessing.warmupThreads()
+        modelProcessing.warmupThreads()
         // Model Info
-        modelProcessing.getModelInfo(1)
-        modelProcessing.getModelInfo(2)
+        modelProcessing.debugGetModelInfo(1)
+        modelProcessing.debugGetModelInfo(2)
         // Android Application Stuff
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)

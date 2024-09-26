@@ -50,6 +50,7 @@ class PaddleDetector {
         var outputMask: Bitmap,
         var outputBitmap: Bitmap,
         var boundingBoxList: List<BoundingBox>,
+        var bitmapBoxMap: MutableMap<Bitmap, BoundingBox>?,
         var inferenceTime: Duration
     )
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
@@ -124,10 +125,13 @@ class PaddleDetector {
                 outputBitmap, bitmapWidth, bitmapHeight
             )
         )
-        val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
+        val boundingBoxList = trimBoundingBoxList(
+            createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
+            , bitmapWidth
+        )
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList, null, inferenceTime)
     }
     fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
         // Resize bitmap
@@ -145,7 +149,7 @@ class PaddleDetector {
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
         // Return the result.
-        return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList, null, inferenceTime)
     }
     private fun normalizeFloatArray(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>>{
         // Normalize the inputArray through the use of mean and standard deviation.
@@ -198,7 +202,7 @@ class PaddleDetector {
         val outputBitmap = fourDimensionArrayToRGBBitmap(outputArray)
         // Save outputBitmap as a JSON file for debugging purposes.
         // TODO: Remove this line for final package.
-        fourDimensionArrayToJSON(outputArray, "/storage/emulated/0/Download/output.json")
+        // fourDimensionArrayToJSON(outputArray, "/storage/emulated/0/Download/output.json")
         return outputBitmap
     }
     private fun fourDimensionArrayToRGBBitmap(array: Array<Array<Array<FloatArray>>>): Bitmap {
@@ -409,11 +413,36 @@ class PaddleDetector {
         }
         return croppedBitmapList
     }
+    fun generateBitmapBoxList(inputBitmapList: List<Bitmap>, boundingBoxList: List<BoundingBox>): MutableMap<Bitmap, BoundingBox> {
+        val bitmapBoxMap = mutableMapOf<Bitmap, BoundingBox>()
+        for (i in inputBitmapList.indices) {
+            bitmapBoxMap[inputBitmapList[i]] = boundingBoxList[i]
+        }
+        return bitmapBoxMap
+    }
     // Detection-exclusive image processing functions
     private fun opening(inputBitmap: Bitmap, x: Double, y: Double): Bitmap {
         val inputMat = ImageProcessing().convertBitmapToMat(inputBitmap)
         val outputMat = ImageProcessing().opening(inputMat, x, y)
         return ImageProcessing().convertToBitmap(outputMat)
+    }
+    private fun trimBoundingBoxList(inputBoundingBoxList: List<BoundingBox>, bitmapWidth: Int): List<BoundingBox>{
+        val midpoint = bitmapWidth / 2
+        val trimmedBoundingBoxList = mutableListOf<BoundingBox>()
+        // Iterate through list.
+        for (boundingBox in inputBoundingBoxList){
+            // Only add if bounding box's x-coordinate is:
+            // Found within the first 128 pixels from the right.
+            if (boundingBox.x < 128) {
+                trimmedBoundingBoxList.add(boundingBox)
+            } // Found within 128 pixels before the midpoint.
+            else if ((midpoint - 128) < boundingBox.x && boundingBox.x < midpoint){
+                trimmedBoundingBoxList.add(boundingBox)
+            }
+        }
+        // Sort by y-coordinates in ascending order.
+        trimmedBoundingBoxList.sortBy { it.y }
+        return trimmedBoundingBoxList
     }
     // Debugging functions
     private fun debugSaveImage(bitmap: Bitmap, filename: String){
@@ -421,4 +450,5 @@ class PaddleDetector {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
     }
+
 }

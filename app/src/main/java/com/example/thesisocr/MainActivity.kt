@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity() {
     private fun displayRecognitionResults(listOfStrings: MutableList<String>) {
         textView = findViewById(R.id.textView)
         textView.visibility = View.VISIBLE
-        textView.text = "Recognition Results (Unordered):"
+        textView.text = "Recognition Results:"
         for (string in listOfStrings) {
             textView.append("\n")
             textView.append(string)
@@ -204,13 +204,14 @@ class MainActivity : AppCompatActivity() {
         val detectionBitmapMask = modelResults.detectionResult.outputMask
         val detectionBitmap = modelResults.detectionResult.outputBitmap
         val recognitionInputBitmapList = modelResults.recogInputBitmapList
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
         // Save the images.
         val yeetLocation = "/storage/emulated/0/Documents"
-        val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask.jpg")
-        val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result.jpg")
-        for (i in 0 until recognitionInputBitmapList.size){
+        val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
+        val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
+        /*for (i in 0 until recognitionInputBitmapList.size){
             val recognitionInputBool = saveImage(recognitionInputBitmapList[i], "$yeetLocation/recognition_input_$i.jpg")
-        }
+        }*/
         if (detectionMaskBool && detectionOutputBool){
             Toast.makeText(baseContext,
                 "Images saved to $yeetLocation.",

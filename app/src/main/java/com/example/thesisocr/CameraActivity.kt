@@ -92,6 +92,7 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
         btnTakePhoto.setOnClickListener {
             takePhoto()
             Toast.makeText(this, "Photo taken. Wait for processing.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "You can let go now.", Toast.LENGTH_SHORT).show()
         }
         btnExitCamera.setOnClickListener {
             // Return to the previous activity.

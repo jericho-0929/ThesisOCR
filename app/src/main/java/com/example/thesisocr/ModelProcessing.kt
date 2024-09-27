@@ -32,7 +32,7 @@ class ModelProcessing(private val resources: Resources) {
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
         // Cancel entire process if bounding box list is less than 12 and more than 13.
-        if (detectionResult.boundingBoxList.size < 12 || detectionResult.boundingBoxList.size > 25){
+        if (detectionResult.boundingBoxList.size < 6 || detectionResult.boundingBoxList.size > 25){
             return ModelResults(detectionResult, null, mutableListOf())
         }
         ortSession.close()

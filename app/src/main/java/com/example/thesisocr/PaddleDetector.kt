@@ -442,6 +442,28 @@ class PaddleDetector {
         }
         // Sort by y-coordinates in ascending order.
         trimmedBoundingBoxList.sortBy { it.y }
+        // Remove labels by removing bounding boxes after it if the y-coordinate difference is within 30 to 55 pixels.
+        // Only iterate bounding boxes whose x-coordinate is within 128 pixels from the midpoint.
+        for (i in 0 until trimmedBoundingBoxList.size){
+            if (i < trimmedBoundingBoxList.size - 1){
+                val currentBox = trimmedBoundingBoxList[i]
+                val nextBox = trimmedBoundingBoxList[i + 1]
+                if ((midpoint - 128) < currentBox.x && currentBox.x < midpoint){
+                    if (nextBox.y - currentBox.y in 30..55){
+                        trimmedBoundingBoxList.removeAt(i)
+                    }
+                }
+            }
+        }
+        // Compare the last few bounding boxes and remove the one with the least y-coordinate.
+        // Ensure these boxes' x-coordinates are within 128 pixels from right.
+        val maxHeight = 960
+        val lastFewBoxes = trimmedBoundingBoxList.takeLastWhile { it.x < 128 && it.y > maxHeight - 240}
+        if (lastFewBoxes.size > 1){
+            val minYBox = lastFewBoxes.minByOrNull { it.y }
+            trimmedBoundingBoxList.remove(minYBox)
+        }
+        // Remove the box if x-coordinate is not within 128 pixels from the right.
         return trimmedBoundingBoxList
     }
     // Debugging functions

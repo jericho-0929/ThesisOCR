@@ -2,21 +2,13 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
@@ -27,19 +19,17 @@ import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import com.example.thesisocr.databinding.ActivityCameraBinding
 import org.opencv.android.OpenCVLoader
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.google.gson.Gson
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     // Model Vocabulary from en_dict.txt raw resource file.
@@ -206,7 +196,7 @@ class MainActivity : AppCompatActivity() {
         val recognitionInputBitmapList = modelResults.recogInputBitmapList
         val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
         // Save the images.
-        val yeetLocation = "/storage/emulated/0/Documents"
+        val yeetLocation = "/storage/emulated/0/Documents/ThesisOCR"
         val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
         val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
         /*for (i in 0 until recognitionInputBitmapList.size){
@@ -221,12 +211,57 @@ class MainActivity : AppCompatActivity() {
                 "Image saving failed.",
                 Toast.LENGTH_SHORT).show()
         }
+        val isRecognitionOutputSaved = saveStringListAsJson(modelResults.recognitionResult!!.listOfStrings, "$yeetLocation/recognition_output" + dateFormat.format(System.currentTimeMillis()) + ".json")
+        val isDetectionOutputSaved = saveBoundingBoxCoordinatesAsJson(modelResults.detectionResult.boundingBoxList, "$yeetLocation/detection_output" + dateFormat.format(System.currentTimeMillis()) + ".json")
+        if (isRecognitionOutputSaved && isDetectionOutputSaved){
+            Toast.makeText(baseContext,
+                "Text and Bounding Box Coordinates saved to $yeetLocation.",
+                Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(baseContext,
+                "Text and Bounding Box Coordinates saving failed.",
+                Toast.LENGTH_SHORT).show()
+        }
     }
     private fun saveImage(bitmap: Bitmap, filename: String): Boolean {
         val fileOutputStream = FileOutputStream(filename)
         val saveBool = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
         return saveBool
+    }
+    private fun saveStringListAsJson(inputList: List<String>, filename: String): Boolean {
+        val gson = Gson()
+        val jsonString = gson.toJson(inputList)
+        File(filename).writeText(jsonString)
+        return true
+    }
+    private fun saveBoundingBoxCoordinatesAsJson(inputList: List<PaddleDetector.BoundingBox>, filename: String): Boolean {
+        val gson = Gson()
+        val jsonString = gson.toJson(inputList)
+        File(filename).writeText(jsonString)
+        return true
+    }
+    private fun OutputStream.saveStringListAsCSV(context: Context, inputList: List<String>): Boolean {
+        // Write inputList to specified filename.
+        val writer = bufferedWriter()
+        inputList.forEach {
+            writer.write(it)
+            writer.newLine()
+        }
+        writer.flush()
+        writer.close()
+        return true
+    }
+    private fun OutputStream.saveBoundingBoxCoordinatesAsCSV(context: Context, inputList: List<PaddleDetector.BoundingBox>): Boolean {
+        // Each row has following entries: x, y, width, height.
+        val writer = bufferedWriter()
+        inputList.forEach{
+            writer.write("${it.x}, ${it.y}, ${it.width}, ${it.height}")
+            writer.newLine()
+        }
+        writer.flush()
+        writer.close()
+        return true
     }
     // CameraX Functions
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {

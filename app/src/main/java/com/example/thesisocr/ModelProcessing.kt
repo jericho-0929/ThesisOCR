@@ -101,7 +101,7 @@ class ModelProcessing(private val resources: Resources) {
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {
             // Detection
-            1 -> R.raw.det_model
+            1 -> R.raw.en_v3_det_finetuned_norm_1
             // Recognition
             2 -> R.raw.en_v3_synth4_20epoch
             // Default to detection model.

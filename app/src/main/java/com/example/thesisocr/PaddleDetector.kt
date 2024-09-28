@@ -472,5 +472,4 @@ class PaddleDetector {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
         fileOutputStream.close()
     }
-
 }

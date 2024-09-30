@@ -56,68 +56,79 @@ class PaddleDetector {
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
     private var inferenceTime: Duration = Duration.ZERO
 
-    fun detect(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
+    fun detect(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession, runParallel: Boolean = true): Result {
+        // Resize the inputBitmap to the model's input size.
         val bitmapWidth = inputBitmap.width
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
-        val resizedBitmap = ImageProcessing().rescaleBitmap(inputBitmap, bitmapWidth, bitmapHeight)
-        val preprocessedBitmap = ImageProcessing().processImageForDetection(resizedBitmap)
-        Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
-        // Split the inputArray into chunks.
-        val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {
-            convertImageToFloatArray(it)
-        }
-        val referenceChunks = splitBitmapIntoChunks(resizedBitmap)
-        val resultList: List<OrtSession.Result>
-        Log.d("PaddleDetector", "Starting detection inference.")
-        // Process each chunk in parallel using async().
-        runBlocking {
-            val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
-            for (chunk in inferenceChunks) {
-                val deferred = async(Dispatchers.Default) {
-                    Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().id}.")
-                    runModel(chunk, ortEnvironment, ortSession)
-                }
-                deferredList.add(deferred)
-            }
-            val totalInferenceTime = measureTime {
-                resultList = deferredList.awaitAll()
-            }
-            inferenceTime = totalInferenceTime
-            Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
-        }
-        Log.d("PaddleDetector", "Inference complete.")
-        val rawBitmapList = mutableListOf<Bitmap>()
-        for (i in resultList.indices) {
-            rawBitmapList.add(
-                opening(
-                    processRawOutput(resultList[i], referenceChunks[i])
-                    , 5.0, 5.0
-                )
-            )
-        }
-        // Fix the output bitmaps by closing horizontal gaps.
-        val fixedBitmapList = mutableListOf<Bitmap>()
-        val pixelDistance = rawBitmapList[0].width / 4
-        for (i in resultList.indices) {
-            // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
-            when (i) {
-                0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(rawBitmapList[i], pixelDistance))
-                resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(rawBitmapList[i], pixelDistance))
-                else -> fixedBitmapList.add(closeHorizontalGaps(rawBitmapList[i], pixelDistance))
-            }
-        }
-        // Stitch the output bitmaps together
-        val debugOutputBitmap = ImageProcessing().convertToBitmap(
-            ImageProcessing().convertBitmapToMat(
-                stitchBitmapChunks(fixedBitmapList)
-            )
+        val resizedBitmap = ImageProcessing().rescaleBitmap(
+            // ImageProcessing().processImageForDetection(inputBitmap),
+            inputBitmap,
+            bitmapWidth, bitmapHeight
         )
-        val outputBitmap = ImageProcessing().convertToBitmap(
+        Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
+        val outputBitmap: Bitmap
+        // Check if runParallel is true.
+        Log.d("PaddleDetector", "Parallel Processing: $runParallel")
+        if (runParallel) {
+            // Run with parallel processing.
+            // Split the inputArray into chunks.
+            val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {
+                convertImageToFloatArray(it)
+            }
+            val referenceChunks = splitBitmapIntoChunks(resizedBitmap)
+            val resultList: List<OrtSession.Result>
+            Log.d("PaddleDetector", "Starting detection inference.")
+            // Process each chunk in parallel using async().
+            runBlocking {
+                val deferredList = mutableListOf<Deferred<OrtSession.Result>>()
+                for (chunk in inferenceChunks) {
+                    val deferred = async(Dispatchers.Default) {
+                        Log.d("PaddleRecognition", "Thread: ${Thread.currentThread().id}.")
+                        runModel(chunk, ortEnvironment, ortSession)
+                    }
+                    deferredList.add(deferred)
+                }
+                val totalInferenceTime = measureTime {
+                    resultList = deferredList.awaitAll()
+                }
+                inferenceTime = totalInferenceTime
+                Log.d("PaddleDetector", "Processing time (inc. overhead): $totalInferenceTime")
+            }
+            Log.d("PaddleDetector", "Inference complete.")
+            val rawBitmapList = mutableListOf<Bitmap>()
+            for (i in resultList.indices) {
+                rawBitmapList.add(
+                    opening(
+                        processRawOutput(resultList[i], referenceChunks[i])
+                        , 5.0, 5.0
+                    )
+                )
+            }
+            // Fix the output bitmaps by closing horizontal gaps.
+            val fixedBitmapList = mutableListOf<Bitmap>()
+            val pixelDistance = rawBitmapList[0].width / 4
+            for (i in resultList.indices) {
+                // First bitmap: closeHorizontalGapsRightOnly, Last bitmap: closeHorizontalGapsLeftOnly, Others: closeHorizontalGaps
+                when (i) {
+                    0 -> fixedBitmapList.add(closeHorizontalGapsRightOnly(rawBitmapList[i], pixelDistance))
+                    resultList.size - 1 -> fixedBitmapList.add(closeHorizontalGapsLeftOnly(rawBitmapList[i], pixelDistance))
+                    else -> fixedBitmapList.add(closeHorizontalGaps(rawBitmapList[i], pixelDistance))
+                }
+            }
+            // Stitch the output bitmaps together
+            outputBitmap = ImageProcessing().convertToBitmap(
                 ImageProcessing().convertBitmapToMat(
                     stitchBitmapChunks(fixedBitmapList)
                 )
-        )
+            )
+        } else {
+            // Run without parallel processing.
+            val inputArray = convertImageToFloatArray(resizedBitmap)
+            val rawOutput = runModel(inputArray, ortEnvironment, ortSession)
+            outputBitmap = opening(processRawOutput(rawOutput, resizedBitmap), 5.0, 5.0)
+        }
+
         // Creation of bounding boxes from the outputBitmap.
         // Resize the outputBitmap to the original inputBitmap's size.
         val resizedOutputBitmap = ImageProcessing().processDetectionOutputMask(
@@ -125,30 +136,13 @@ class PaddleDetector {
                 outputBitmap, bitmapWidth, bitmapHeight
             )
         )
+        // Generate bounding boxes from the outputBitmap.
         val boundingBoxList = trimBoundingBoxList(
             createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
             , bitmapWidth
         )
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(outputBitmap, renderedBitmap, boundingBoxList, null, inferenceTime)
-    }
-    fun detectSingle(inputBitmap: Bitmap, ortEnvironment: OrtEnvironment, ortSession: OrtSession): Result {
-        // Resize bitmap
-        val resizedBitmap = ImageProcessing().processImageForDetection(ImageProcessing().rescaleBitmap(inputBitmap, 1280, 960))
-        // Convert to FloatArray
-        val inputArray = convertImageToFloatArray(resizedBitmap)
-        val normalizedArray = normalizeFloatArray(inputArray)
-        val debugBitmap = convertFloatArrayToImage(normalizedArray)
-        // Start inference
-        val rawOutput = runModel(convertImageToFloatArray(debugBitmap), ortEnvironment, ortSession)
-        // Process raw output
-        val outputBitmap = processRawOutput(rawOutput, resizedBitmap)
-        // Generate bounding boxes
-        val boundingBoxList = createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(outputBitmap)), outputBitmap)
-        // Render bounding boxes on the inputBitmap.
-        val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        // Return the result.
         return Result(outputBitmap, renderedBitmap, boundingBoxList, null, inferenceTime)
     }
     private fun normalizeFloatArray(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>>{

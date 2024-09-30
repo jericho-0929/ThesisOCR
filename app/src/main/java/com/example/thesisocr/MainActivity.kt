@@ -50,6 +50,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modelProcessing: ModelProcessing
     private lateinit var modelResults: ModelProcessing.ModelResults
 
+    private var parallelDetection = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV
         OpenCVLoader.initLocal()
@@ -79,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         val btnCallCamera = findViewById<Button>(R.id.btnCallCamera)
         val btnSelectImage = findViewById<Button>(R.id.btnSelectImage)
         val btnDebugSave = findViewById<Button>(R.id.debugSave)
+        val btnDebugProcess = findViewById<Button>(R.id.debugProcess)
         imageView = findViewById(R.id.imageView)
 
         // Button Listeners
@@ -94,6 +97,23 @@ class MainActivity : AppCompatActivity() {
         btnDebugSave.setOnClickListener {
             debugSaveImages()
         }
+        // Process Mode Button
+        btnDebugProcess.setOnClickListener {
+            // Toggle parallel detection.
+            parallelDetection = !parallelDetection
+            if (parallelDetection){
+                Toast.makeText(baseContext,
+                    "Parallel Detection: ON",
+                    Toast.LENGTH_SHORT).show()
+                btnDebugProcess.text = getString(R.string.debug_parallel)
+            } else {
+                Toast.makeText(baseContext,
+                    "Parallel Detection: OFF",
+                    Toast.LENGTH_SHORT).show()
+                btnDebugProcess.text = getString(R.string.debug_serial)
+            }
+            Log.d("Parallel Detection", "Status: $parallelDetection")
+        }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -103,7 +123,7 @@ class MainActivity : AppCompatActivity() {
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
             // Process the image.
-            processBitmap(bitmap)
+            processBitmap(bitmap, parallelDetection)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -131,13 +151,13 @@ class MainActivity : AppCompatActivity() {
             val bitmapUri = Uri.parse(data?.getStringExtra("data"))
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
             // Process the image.
-            processBitmap(bitmap)
+            processBitmap(bitmap, parallelDetection)
         }
     }
     // Functions
-    private fun processBitmap(bitmap: Bitmap) {
+    private fun processBitmap(bitmap: Bitmap, parallelDetection: Boolean = true) {
         // Process the image.
-        modelResults = modelProcessing.processImage(bitmap)
+        modelResults = modelProcessing.processImage(bitmap, parallelDetection)
         // Check if recognition result is null.
         if (modelResults.recognitionResult == null){
             Toast.makeText(baseContext,

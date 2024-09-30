@@ -30,6 +30,7 @@ class PaddleRecognition {
         var listOfStrings: MutableList<String>,
         var inferenceTime: Duration
     )
+    private val tensorInputHeight = 48
     private var inferenceTime: Duration = Duration.ZERO
     fun recognize(listOfInputBitmaps: List<Bitmap>, ortEnvironment: OrtEnvironment, ortSession: OrtSession, modelVocab: List<String>): TextResult {
         // Variables for recognition output.
@@ -92,7 +93,7 @@ class PaddleRecognition {
     }
     private fun bitmapToFloatArray(bitmap: Bitmap): Array<Array<FloatArray>> {
         // Rescale bitmap to height 48 while maintaining width
-        val rescaledBitmap = rescaleBitmap(bitmap, bitmap.width, 48)
+        val rescaledBitmap = rescaleBitmap(bitmap, bitmap.width, tensorInputHeight)
         // Convert bitmap to float array.
         val channels = 3
         val width = rescaledBitmap.width
@@ -133,6 +134,7 @@ class PaddleRecognition {
         val listOfStrings = mutableListOf<String>()
         // Array structure: rawOutput[batchSize][sequenceLength][modelVocab]
         val rawOutputArray = rawOutput.get(0).value as Array<Array<FloatArray>>
+        val modelVocabSize = modelVocab.size
         // NOTE: batchSize is variable in this case.
         for (i in rawOutputArray.indices) {
             val sequenceLength = rawOutputArray[i].size
@@ -140,7 +142,7 @@ class PaddleRecognition {
             var lastChar = ""
             for (j in 0 until sequenceLength) {
                 val maxIndex = rawOutputArray[i][j].indices.maxByOrNull { rawOutputArray[i][j][it] } ?: -1
-                if (maxIndex in 1..95 && rawOutputArray[i][j][maxIndex] > 0.00f) {
+                if (maxIndex in 1..modelVocabSize && rawOutputArray[i][j][maxIndex] > 0.00f) {
                     val currentChar = modelVocab[maxIndex - 1]
                     if (!(lastChar == " " && currentChar == " ")) {
                         sequence.add(currentChar)
@@ -148,7 +150,7 @@ class PaddleRecognition {
                     }
                 } else {
                     // CTC Loss Handling
-                    if (maxIndex == 96) {
+                    if (maxIndex >= modelVocabSize + 1) {
                         sequence.add(" ")
                         lastChar = " "
                     }

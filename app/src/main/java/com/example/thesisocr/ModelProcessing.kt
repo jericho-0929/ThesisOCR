@@ -14,8 +14,6 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession
-    // private var detSession: OrtSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-    // private var recogSession: OrtSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
     private val resizeWidth = 1280
     private val resizeHeight = 960
 
@@ -24,23 +22,28 @@ class ModelProcessing(private val resources: Resources) {
         var recognitionResult: PaddleRecognition.TextResult?,
         var recogInputBitmapList: MutableList<Bitmap>
     )
-    fun processImage(inputBitmap: Bitmap): ModelResults {
+    fun processImage(inputBitmap: Bitmap, detectionParallel: Boolean = true): ModelResults {
+        // Resize the input bitmap.
         val resizedBitmap = ImageProcessing().rescaleBitmap(
             inputBitmap
             , resizeWidth, resizeHeight)
-        // Image pre-processing.
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
-        val detectionResult = PaddleDetector().detect(resizedBitmap, ortEnv, ortSession)
+        // Run detection on the resized bitmap.
+        val detectionResult = PaddleDetector().detect(
+            ImageProcessing().processImageForDetection(resizedBitmap), ortEnv, ortSession, detectionParallel
+        )
         // Cancel entire process if bounding box list is less than 12 and more than 13.
         if (detectionResult.boundingBoxList.size < 6 || detectionResult.boundingBoxList.size > 25){
             return ModelResults(detectionResult, null, mutableListOf())
         }
         ortSession.close()
+        // Run recognition on the resized bitmap.
         val recogInputBitmapList = cropAndProcessBitmapList(resizedBitmap, detectionResult)
         ortSession = ortEnv.createSession(selectModel(2), ortSessionConfigurations())
         val recognitionResult =
             PaddleRecognition().recognize(recogInputBitmapList, ortEnv, ortSession, modelVocab)
         ortSession.close()
+        // Return the results.
         return ModelResults(detectionResult, recognitionResult, recogInputBitmapList)
     }
     fun warmupThreads(){
@@ -101,8 +104,8 @@ class ModelProcessing(private val resources: Resources) {
     private fun selectModel(modelNum: Int): ByteArray{
         val modelPackagePath = when (modelNum) {
             // Detection
-            1 -> R.raw.en_v3_det_finetuned_norm_1
-            // Recognition
+            1 -> R.raw.det_model
+            // Recognition (Working model is en_v3_synth4_20epoch)
             2 -> R.raw.en_v3_synth4_20epoch
             // Default to detection model.
             else -> R.raw.det_model

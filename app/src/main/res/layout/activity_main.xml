@@ -69,10 +69,21 @@
 
     <Button
         android:id="@+id/debugSave"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="110dp"
+        android:layout_height="35dp"
         android:text="@string/debug_save"
+        android:textSize="11sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <Button
+        android:id="@+id/debugProcess"
+        android:layout_width="110dp"
+        android:layout_height="35dp"
+        android:layout_marginTop="2dp"
+        android:text="@string/debug_parallel"
+        android:textSize="11sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/debugSave"
+        app:layout_constraintBottom_toTopOf="@+id/imageView"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -60,7 +60,7 @@ class ModelProcessing(private val resources: Resources) {
             val warmupDetection = PaddleDetector().detect(
                 //ImageProcessing().processImageForDetection(warmupBitmap)
                 warmupBitmap
-                , ortEnv, ortSession)
+                , ortEnv, ortSession, false)
             ortSession.close()
             // Run recognition on warm-up bitmap.
             if (warmupDetection.boundingBoxList.isNotEmpty()){

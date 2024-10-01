@@ -32,8 +32,9 @@ class ImageProcessing {
         return convertToBitmap(dilation(inputMat, 3.0, 3.0))
     }
     fun processImageForDetection(inputBitmap: Bitmap): Bitmap {
-        val thresholdMat = thresholdBitmap(inputBitmap)
-        val blurredMat = imageBlur(thresholdMat)
+        // val thresholdMat = thresholdBitmap(inputBitmap)
+        // val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))
+        val blurredMat = imageBlur(convertBitmapToMat(inputBitmap))
         return convertToBitmap(
             //sectionRemoval(
                 blurredMat
@@ -68,7 +69,7 @@ class ImageProcessing {
     }
     // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
-        val thresholdMat = thresholdBitmap(inputBitmap)
+        val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))
         // Blur twice.
         val blurredMat = imageBlur(thresholdMat)
         val openedMat = opening(blurredMat, 3.0, 3.0)
@@ -94,7 +95,8 @@ class ImageProcessing {
     }
     private fun imageThresholding(inputMat: Mat): Mat {
         val thresholdMat = Mat()
-        Imgproc.threshold(inputMat, thresholdMat, 165.0, 255.0, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU)
+        // Imgproc.threshold(inputMat, thresholdMat, 165.0, 255.0, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU)
+        Imgproc.adaptiveThreshold(inputMat, thresholdMat, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 95, 47.0)
         return thresholdMat
     }
     private fun imageSharpening(inputMat: Mat): Mat {

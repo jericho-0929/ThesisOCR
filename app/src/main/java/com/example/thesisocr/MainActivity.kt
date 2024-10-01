@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modelProcessing: ModelProcessing
     private lateinit var modelResults: ModelProcessing.ModelResults
 
-    private var parallelDetection = true
+    private var parallelDetection = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Load OpenCV

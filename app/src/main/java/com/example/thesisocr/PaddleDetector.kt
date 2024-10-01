@@ -62,8 +62,8 @@ class PaddleDetector {
         val bitmapHeight = inputBitmap.height
         // Resize the inputBitmap to the model's input size.
         val resizedBitmap = ImageProcessing().rescaleBitmap(
-            // ImageProcessing().processImageForDetection(inputBitmap),
-            inputBitmap,
+            ImageProcessing().processImageForDetection(inputBitmap),
+            //inputBitmap,
             bitmapWidth, bitmapHeight
         )
         Log.d("PaddleDetector", "Resized Bitmap: ${resizedBitmap.width} x ${resizedBitmap.height}")
@@ -125,8 +125,12 @@ class PaddleDetector {
         } else {
             // Run without parallel processing.
             val inputArray = convertImageToFloatArray(resizedBitmap)
-            val rawOutput = runModel(inputArray, ortEnvironment, ortSession)
+            val rawOutput: OrtSession.Result
+            val totalInferenceTime = measureTime {
+                rawOutput = runModel(inputArray, ortEnvironment, ortSession)
+            }
             outputBitmap = opening(processRawOutput(rawOutput, resizedBitmap), 5.0, 5.0)
+            inferenceTime = totalInferenceTime
         }
 
         // Creation of bounding boxes from the outputBitmap.

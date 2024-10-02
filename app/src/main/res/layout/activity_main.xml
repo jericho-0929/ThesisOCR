@@ -81,7 +81,7 @@
         android:layout_width="110dp"
         android:layout_height="35dp"
         android:layout_marginTop="2dp"
-        android:text="@string/debug_parallel"
+        android:text="@string/debug_serial"
         android:textSize="11sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/debugSave"

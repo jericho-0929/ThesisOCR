@@ -90,7 +90,7 @@ class ModelProcessing(private val resources: Resources) {
         Log.d("Session Options", "Session Options: $sessionOptionInfo")
         // Turn on profiling
         // Save to profile.log at device's documents directory.
-        sessionOptions.enableProfiling(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString() + "/profile.log")
+        // sessionOptions.enableProfiling(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString() + "/profile.log")
         return sessionOptions
     }
     private fun cropAndProcessBitmapList(inputBitmap: Bitmap, detectionResult: PaddleDetector.Result): MutableList<Bitmap>{

@@ -36,7 +36,7 @@
         android:layout_height="49dp"
         android:layout_marginBottom="8dp"
         android:gravity="center"
-        android:text="Ensure ID covers much of the preview"
+        android:text="Ensure ID covers all of the preview"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/btnTakePhoto"
         app:layout_constraintStart_toEndOf="@id/btnExitCamera" />

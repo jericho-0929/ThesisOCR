@@ -51,8 +51,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modelResults: ModelProcessing.ModelResults
 
     private var parallelDetection = false
+    private var runCount = 0
+    private var cameraUsed = false
+    private lateinit var cameraInputBitmap: Bitmap
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Get permissions.
+        allPermissionsGranted()
+        requestPermissions()
         // Load OpenCV
         OpenCVLoader.initLocal()
         if(OpenCVLoader.initLocal()){
@@ -95,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Debug Save Button
         btnDebugSave.setOnClickListener {
-            debugSaveImages()
+            debugSaveImages(cameraUsed)
         }
         // Process Mode Button
         btnDebugProcess.setOnClickListener {
@@ -127,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
+        cameraUsed = false
     }
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){
         permissions ->
@@ -137,11 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (!permissionGranted) {
             Toast.makeText(baseContext,
-                "Permission request denied",
-                Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(baseContext,
-                "Camera open.",
+                "Camera Access Denied",
                 Toast.LENGTH_SHORT).show()
         }
     }
@@ -151,11 +154,13 @@ class MainActivity : AppCompatActivity() {
             val bitmapUri = Uri.parse(data?.getStringExtra("data"))
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, bitmapUri)
             // Process the image.
+            cameraUsed = true
+            cameraInputBitmap = bitmap
             processBitmap(bitmap, parallelDetection)
         }
     }
     // Functions
-    private fun processBitmap(bitmap: Bitmap, parallelDetection: Boolean = true) {
+    private fun processBitmap(bitmap: Bitmap, parallelDetection: Boolean = true): Boolean {
         // Process the image.
         modelResults = modelProcessing.processImage(bitmap, parallelDetection)
         // Check if recognition result is null.
@@ -163,26 +168,22 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(baseContext,
                 "Image not good. Please try again.",
                 Toast.LENGTH_SHORT).show()
-            return
+            textView = findViewById(R.id.textView)
+            textView.visibility = View.VISIBLE
+            textView.text = "Image not good. Please try again."
+            return false
         } else {
             // Display the image and recognition results.
             displayImage(modelResults.detectionResult.outputBitmap)
-            displayRecognitionResults(modelResults.recognitionResult!!.listOfStrings)
+            // Check if modelResults.recognitionResult is null.
+            displayRecognitionResults(modelResults.recognitionResult)
             // Display inference times to the user.
-            Toast.makeText(
-                baseContext,
-                "Detection Inference Time: ${modelResults.detectionResult.inferenceTime.inWholeMilliseconds.toInt()} ms",
-                Toast.LENGTH_LONG
-            ).show()
-            Toast.makeText(
-                baseContext,
-                "Recognition Inference Time: ${modelResults.recognitionResult!!.inferenceTime.inWholeMilliseconds.toInt()} ms",
-                Toast.LENGTH_LONG
-            ).show()
             displayInferenceTime(
                 modelResults.detectionResult.inferenceTime.inWholeMilliseconds,
                 modelResults.recognitionResult!!.inferenceTime.inWholeMilliseconds
             )
+            runCount++
+            return true
         }
     }
     private fun displayImage(bitmap: Bitmap?) {
@@ -193,13 +194,16 @@ class MainActivity : AppCompatActivity() {
         imageView!!.visibility = View.VISIBLE
         imageView!!.setImageURI(imageUri)
     }
-    private fun displayRecognitionResults(listOfStrings: MutableList<String>) {
+    private fun displayRecognitionResults(recognitionResult: PaddleRecognition.TextResult?) {
+        val listOfStrings = recognitionResult?.listOfStrings
         textView = findViewById(R.id.textView)
         textView.visibility = View.VISIBLE
         textView.text = "Recognition Results:"
-        for (string in listOfStrings) {
-            textView.append("\n")
-            textView.append(string)
+        if (listOfStrings != null) {
+            for (string in listOfStrings) {
+                textView.append("\n")
+                textView.append(string)
+            }
         }
     }
     private fun displayInferenceTime(detectionInferenceTime: Long, recognitionInferenceTime: Long) {
@@ -209,38 +213,67 @@ class MainActivity : AppCompatActivity() {
         inferenceView.append("\nRecognition inference time: $recognitionInferenceTime ms")
     }
     // Debug Functions
-    private fun debugSaveImages(){
+    private fun debugSaveImages(cameraUsed: Boolean = false){
         // Grab bitmap contents of modelProcessing.
         val detectionBitmapMask = modelResults.detectionResult.outputMask
         val detectionBitmap = modelResults.detectionResult.outputBitmap
-        val recognitionInputBitmapList = modelResults.recogInputBitmapList
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US)
+        val filenameAppendix = dateFormat.format(System.currentTimeMillis())
         // Save the images.
-        val yeetLocation = "/storage/emulated/0/Documents/ThesisOCR"
-        val detectionMaskBool = saveImage(detectionBitmapMask, "$yeetLocation/detection_mask" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
-        val detectionOutputBool = saveImage(detectionBitmap, "$yeetLocation/detection_result" + dateFormat.format(System.currentTimeMillis()) + ".jpg")
-        /*for (i in 0 until recognitionInputBitmapList.size){
-            val recognitionInputBool = saveImage(recognitionInputBitmapList[i], "$yeetLocation/recognition_input_$i.jpg")
-        }*/
-        if (detectionMaskBool && detectionOutputBool){
+        val yeetLocation = if (cameraUsed) {
+            "/storage/emulated/0/Documents/ThesisOCR/Camera"
+        } else {
+            "/storage/emulated/0/Documents/ThesisOCR/Gallery"
+        }
+        val isDirectoryCreated = createDirectory(yeetLocation)
+        if (!isDirectoryCreated){
             Toast.makeText(baseContext,
-                "Images saved to $yeetLocation.",
+                "Directory not created.",
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        val detectionMaskBool = saveImage(detectionBitmapMask,
+            "$yeetLocation/detection_mask_$filenameAppendix.jpg"
+        )
+        val cameraInputBool = if (cameraUsed) {
+            saveImage(cameraInputBitmap,
+                "$yeetLocation/camera_input_$filenameAppendix.jpg"
+            )
+        } else {
+            false
+        }
+        val isRecognitionOutputSaved = saveStringListAsJson(modelResults.recognitionResult!!.listOfStrings,
+            "$yeetLocation/recognition_output_$filenameAppendix.json"
+        )
+        val isDetectionOutputSaved = saveBoundingBoxCoordinatesAsJson(modelResults.detectionResult.boundingBoxList,
+            "$yeetLocation/detection_output_$filenameAppendix.json"
+        )
+        val combinedMap = createCombinedDictionary(
+            modelResults.detectionResult.boundingBoxList,
+            modelResults.recognitionResult!!.listOfStrings
+        )
+        val isCombinedOutputSaved = appendCombinedListToJson(
+            filenameAppendix,
+            "$yeetLocation/combined_output.json",
+            listOf(combinedMap)
+        )
+        // Check if at least one image is saved.
+        if (detectionMaskBool || cameraInputBool){
+            Toast.makeText(baseContext,
+                "Image/s saved to $yeetLocation",
                 Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(baseContext,
-                "Image saving failed.",
+                "Image/s not saved.",
                 Toast.LENGTH_SHORT).show()
         }
-        val isRecognitionOutputSaved = saveStringListAsJson(modelResults.recognitionResult!!.listOfStrings, "$yeetLocation/recognition_output" + dateFormat.format(System.currentTimeMillis()) + ".json")
-        val isDetectionOutputSaved = saveBoundingBoxCoordinatesAsJson(modelResults.detectionResult.boundingBoxList, "$yeetLocation/detection_output" + dateFormat.format(System.currentTimeMillis()) + ".json")
-        if (isRecognitionOutputSaved && isDetectionOutputSaved){
-            Toast.makeText(baseContext,
-                "Text and Bounding Box Coordinates saved to $yeetLocation.",
-                Toast.LENGTH_SHORT).show()
+    }
+    private fun createDirectory(directoryName: String): Boolean {
+        val directory = File(directoryName)
+        return if (!directory.exists()){
+            directory.mkdirs()
         } else {
-            Toast.makeText(baseContext,
-                "Text and Bounding Box Coordinates saving failed.",
-                Toast.LENGTH_SHORT).show()
+            true
         }
     }
     private fun saveImage(bitmap: Bitmap, filename: String): Boolean {
@@ -259,6 +292,29 @@ class MainActivity : AppCompatActivity() {
         val gson = Gson()
         val jsonString = gson.toJson(inputList)
         File(filename).writeText(jsonString)
+        return true
+    }
+    private fun createCombinedDictionary
+                (inputCoordinateList: List<PaddleDetector.BoundingBox>,
+                 inputStringList: List<String>): Map<String, Any>
+    {
+        // Key:Values are "Bounding Box Coordinates":List<BoundingBox>, "Recognition Output":List<String>.
+        val combinedDictionary = mutableMapOf<String, Any>()
+        combinedDictionary["Bounding Box Coordinates"] = inputCoordinateList
+        combinedDictionary["Recognition Output"] = inputStringList
+        return combinedDictionary
+    }
+    private fun appendCombinedListToJson(inputKey: String, filename: String, inputMat: List<Map<String, Any>>): Boolean {
+        // Append the format: inputKey:inputMat to the filename.
+        // Create a new JSON file if it doesn't exist, otherwise append to the existing file.
+        val gson = Gson()
+        val jsonString = gson.toJson(mapOf(inputKey to inputMat))
+        // Check if the file exists.
+        if (!File(filename).exists()){
+            File(filename).writeText(jsonString)
+        } else {
+            File(filename).appendText(jsonString)
+        }
         return true
     }
     private fun OutputStream.saveStringListAsCSV(context: Context, inputList: List<String>): Boolean {

@@ -71,7 +71,6 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         startCamera()
-        Toast.makeText(this, "Ensure ID covers much of the preview.", Toast.LENGTH_SHORT).show()
 
         // Buttons
         val btnTakePhoto = findViewById<Button>(R.id.btnTakePhoto)

@@ -50,7 +50,6 @@ class PaddleDetector {
         var outputMask: Bitmap,
         var outputBitmap: Bitmap,
         var boundingBoxList: List<BoundingBox>,
-        var bitmapBoxMap: MutableMap<Bitmap, BoundingBox>?,
         var inferenceTime: Duration
     )
     data class BoundingBox(val x: Int, val y: Int, val width: Int, val height: Int)
@@ -147,7 +146,7 @@ class PaddleDetector {
         )
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
-        return Result(outputBitmap, renderedBitmap, boundingBoxList, null, inferenceTime)
+        return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
     }
     private fun normalizeFloatArray(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>>{
         // Normalize the inputArray through the use of mean and standard deviation.

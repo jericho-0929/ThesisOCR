@@ -16,7 +16,7 @@ import kotlin.time.Duration
 import kotlin.time.measureTime
 
 /**
- * PaddleRecognition class for processing images using the PaddleOCR's text recognition model.
+ * PaddleRecognition class for processing images using the PaddleOCR text recognition model.
  * Tensor input shape: (Batch Size, 3, Width, Height)
  * Tensor output shape: (Batch Indices, Sequence Length, Model's Vocabulary)
  * Model's Vocabulary: 97 classes
@@ -156,10 +156,11 @@ class PaddleRecognition {
                     }
                 }
             }
-            // 185 and 186 for Latin Model and 95 and 96 for English Model
-
-            listOfStrings.add(sequence.joinToString(""))
-            Log.d("PaddleRecognition", "Recognized text: ${listOfStrings[i]}.")
+            // Only add if sequence does NOT only contain whitespaces or a single character.
+            if (sequence.isNotEmpty() && sequence.joinToString("").trim().length > 1) {
+                listOfStrings.add(sequence.joinToString(""))
+                Log.d("PaddleRecognition", "Recognized text: ${listOfStrings[i]}.")
+            }
         }
         return listOfStrings
     }
@@ -170,22 +171,5 @@ class PaddleRecognition {
         val chunkSize = (inputList.size / numOfChunks)
         Log.d("PaddleRecognition", "Chunk size: $chunkSize.")
         return inputList.chunked(chunkSize.roundToInt())
-    }
-    // Debugging functions
-    private fun convertArrayToBitmap(array: Array<Array<FloatArray>>): Bitmap {
-        // Width is the 3rd dimension while height is the 2nd dimension.
-        val width = array[0][0].size
-        val height = array[0].size
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                val red = (array[0][j][i] * 255).toInt()
-                val green = (array[1][j][i] * 255).toInt()
-                val blue = (array[2][j][i] * 255).toInt()
-                val pixel = 0xff shl 24 or (red shl 16) or (green shl 8) or blue
-                bitmap.setPixel(i, j, pixel)
-            }
-        }
-        return bitmap
     }
 }

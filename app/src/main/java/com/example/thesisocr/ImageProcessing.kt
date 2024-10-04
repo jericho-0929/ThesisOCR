@@ -21,8 +21,30 @@ class ImageProcessing {
     fun convertBitmapToMat(inputBitmap: Bitmap): Mat {
         val inputMat = Mat()
         Utils.bitmapToMat(inputBitmap, inputMat)
-        Imgproc.cvtColor(inputMat, inputMat, Imgproc.COLOR_RGBA2BGR)
+        Imgproc.cvtColor(inputMat, inputMat, Imgproc.COLOR_RGBA2RGB)
         return inputMat
+    }
+    fun adaptBitmap(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        // Check if inputBitmap is in 4:3 aspect ratio.
+        if (bitmap.width % 4 == 0 && bitmap.height % 3 == 0) {
+            return rescaleBitmap(bitmap, targetWidth, targetHeight)
+        } else {
+            // Rescale the inputBitmap until it fits the target resolution.
+            fun recursiveRescaleBitmap(inputBitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+                val rescaledBitmap = rescaleBitmapOpenCV(inputBitmap, inputBitmap.width / 1.125, inputBitmap.height / 1.125)
+                return if (rescaledBitmap.width <= targetWidth && rescaledBitmap.height <= targetHeight) {
+                    rescaledBitmap
+                } else {
+                    recursiveRescaleBitmap(rescaledBitmap, targetWidth, targetHeight)
+                }
+            }
+            val rescaledBitmap = recursiveRescaleBitmap(bitmap, targetWidth, targetHeight)
+            // Put the rescaledBitmap on a 4:3 aspect ratio canvas.
+            val canvasBitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(canvasBitmap)
+            canvas.drawBitmap(rescaledBitmap, 0.0f, 0.0f, null)
+            return canvasBitmap
+        }
     }
     // Detection pre-processing & post-processing functions.
     fun processDetectionOutputMask(inputBitmap: Bitmap): Bitmap {
@@ -36,36 +58,13 @@ class ImageProcessing {
         // val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))
         val blurredMat = imageBlur(convertBitmapToMat(inputBitmap))
         return convertToBitmap(
-            //sectionRemoval(
                 blurredMat
-            //)
         )
     }
-    fun invertImage(inputBitmap: Bitmap): Bitmap {
+    private fun invertImage(inputBitmap: Bitmap): Bitmap {
         val inputMat = convertBitmapToMat(inputBitmap)
         Core.bitwise_not(inputMat, inputMat)
         return convertToBitmap(inputMat)
-    }
-    // Blacken out a percentage of the image's top and of the image's right.
-    private fun sectionRemoval(inputMat: Mat): Mat {
-        // Channel count is 3.
-        val width = inputMat.width()
-        val height = inputMat.height()
-        val topSectionHeight = (height * 0.40).toInt()
-        val rightSectionWidth = (width * 0.20).toInt()
-        // Whiten out the topmost section.
-        for (i in 0 until topSectionHeight) {
-            for (j in 0 until width) {
-                inputMat.put(i, j, 255.0, 255.0, 255.0)
-            }
-        }
-        // Whiten out the rightmost section
-        for (i in 0 until height) {
-            for (j in 0 until rightSectionWidth) {
-                inputMat.put(i, width - j, 255.0, 255.0, 255.0)
-            }
-        }
-        return inputMat
     }
     // Recognition pre-processing functions.
     fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
@@ -143,7 +142,7 @@ class ImageProcessing {
         return convertToBitmap(outputMat)
     }
     fun convertToBitmap(inputMat: Mat): Bitmap {
-        val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.RGB_565)
+        val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(inputMat, outputBitmap)
         return outputBitmap
     }
@@ -206,5 +205,11 @@ class ImageProcessing {
             }
         }
         return floatArray
+    }
+    private fun rescaleBitmapOpenCV(inputBitmap: Bitmap, newWidth: Double, newHeight: Double): Bitmap {
+        val inputMat = convertBitmapToMat(inputBitmap)
+        val resizedMat = Mat()
+        Imgproc.resize(inputMat, resizedMat, Size(newWidth, newHeight))
+        return convertToBitmap(resizedMat)
     }
 }

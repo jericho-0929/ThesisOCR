@@ -19,15 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import java.io.FileOutputStream
 import java.util.Collections
 import kotlin.time.Duration
 import kotlin.time.measureTime
-
-import com.google.gson.Gson
-import java.io.File
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 /**
  * PaddleDetector class for processing images using the PaddlePaddle model.
@@ -44,7 +38,6 @@ import kotlin.math.sqrt
  *
  * NOTE: Input Width and Height should be a multiple of 32.
  */
-// TODO: REMOVE ANY VARIABLES THAT ARE MARKED FOR DEBUGGING PURPOSES.
 class PaddleDetector {
     data class Result(
         var outputMask: Bitmap,
@@ -73,7 +66,7 @@ class PaddleDetector {
             // Run with parallel processing.
             // Split the inputArray into chunks.
             val inferenceChunks: List<Array<Array<Array<FloatArray>>>> = splitBitmapIntoChunks(resizedBitmap).map {
-                convertImageToFloatArray(it)
+                ImageProcessing().convertImageToFloatArray(it)
             }
             val referenceChunks = splitBitmapIntoChunks(resizedBitmap)
             val resultList: List<OrtSession.Result>
@@ -133,7 +126,7 @@ class PaddleDetector {
         }
 
         // Creation of bounding boxes from the outputBitmap.
-        // Resize the outputBitmap to the original inputBitmap's size.
+        // Resize the outputBitmap to the original inputBitmap size.
         val resizedOutputBitmap = ImageProcessing().processDetectionOutputMask(
             ImageProcessing().rescaleBitmap(
                 outputBitmap, bitmapWidth, bitmapHeight
@@ -142,30 +135,10 @@ class PaddleDetector {
         // Generate bounding boxes from the outputBitmap.
         val boundingBoxList = trimBoundingBoxList(
             createBoundingBoxes(convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)), resizedOutputBitmap)
-            , bitmapWidth
         )
         // Render bounding boxes on the inputBitmap.
-        val renderedBitmap = renderBoundingBoxes(inputBitmap, boundingBoxList)
+        val renderedBitmap = renderBoundingBoxes(resizedBitmap, boundingBoxList)
         return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
-    }
-    private fun normalizeFloatArray(inputArray: Array<Array<Array<FloatArray>>>): Array<Array<Array<FloatArray>>>{
-        // Normalize the inputArray through the use of mean and standard deviation.
-        // Dimensions: (Batch Size, Channels, Width, Height)
-        val scale = 1/255.0f
-        val width = inputArray[0][0].size
-        val height = inputArray[0][0][0].size
-        val normalizedArray = Array(1) { Array(3) { Array(width) { FloatArray(height) } } }
-        // Mean and standard deviation values for each channel.
-        val meanValues = floatArrayOf(0.615f,0.667f,0.724f)
-        val stdValues = floatArrayOf(0.232f,0.240f,0.240f)
-        for (k in 0 until 3) {
-            for (i in 0 until width) {
-                for (j in 0 until height) {
-                    normalizedArray[0][k][i][j] = (inputArray[0][k][i][j] * scale - meanValues[k]) / stdValues[k]
-                }
-            }
-        }
-        return normalizedArray
     }
     // Pass one chunk to the following function.
     private fun runModel(inputArray: Array<Array<Array<FloatArray>>>, ortEnvironment: OrtEnvironment, ortSession: OrtSession): OrtSession.Result {
@@ -196,11 +169,7 @@ class PaddleDetector {
         // Feature map from the model's output.
         val outputArray = rawOutput.get(0).value as Array<Array<Array<FloatArray>>>
         // Convert rawOutput to a Bitmap
-        val outputBitmap = fourDimensionArrayToRGBBitmap(outputArray)
-        // Save outputBitmap as a JSON file for debugging purposes.
-        // TODO: Remove this line for final package.
-        // fourDimensionArrayToJSON(outputArray, "/storage/emulated/0/Download/output.json")
-        return outputBitmap
+        return fourDimensionArrayToRGBBitmap(outputArray)
     }
     private fun fourDimensionArrayToRGBBitmap(array: Array<Array<Array<FloatArray>>>): Bitmap {
         val width = array[0][0].size
@@ -224,11 +193,6 @@ class PaddleDetector {
             }
         }
         return outputBitmap
-    }
-    private fun fourDimensionArrayToJSON(array: Array<Array<Array<FloatArray>>>, filename: String) {
-        val gson = Gson()
-        val jsonString = gson.toJson(array)
-        File(filename).writeText(jsonString)
     }
     private fun stitchBitmapChunks(bitmapList: List<Bitmap>): Bitmap {
         val firstBitmap = bitmapList[0]
@@ -364,32 +328,7 @@ class PaddleDetector {
         }
         return floatArray
     }
-    private fun convertFloatArrayToImage(floatArray: Array<Array<Array<FloatArray>>>): Bitmap {
-        val width = floatArray[0][0].size
-        val height = floatArray[0][0][0].size
-        val channels = floatArray[0].size
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        var minVal = 0
-        var maxVal = 0
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                for (k in 0 until channels) {
-                    minVal = minOf(minVal, floatArray[0][k][i][j].toInt())
-                    maxVal = maxOf(maxVal, floatArray[0][k][i][j].toInt())
-                }
-            }
-        }
-        for (i in 0 until width) {
-            for (j in 0 until height) {
-                val red = ((floatArray[0][0][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
-                val green = ((floatArray[0][1][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
-                val blue = ((floatArray[0][2][i][j] - minVal) / (maxVal - minVal) * 255).toInt()
-                val pixel = 0xff shl 24 or (red shl 16) or (green shl 8) or blue
-                bitmap.setPixel(i, j, pixel)
-            }
-        }
-        return bitmap
-    }
+
     private fun convertToMonochrome(bitmap: Bitmap): Bitmap {
         val result = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(result)
@@ -410,30 +349,41 @@ class PaddleDetector {
         }
         return croppedBitmapList
     }
-    fun generateBitmapBoxList(inputBitmapList: List<Bitmap>, boundingBoxList: List<BoundingBox>): MutableMap<Bitmap, BoundingBox> {
-        val bitmapBoxMap = mutableMapOf<Bitmap, BoundingBox>()
-        for (i in inputBitmapList.indices) {
-            bitmapBoxMap[inputBitmapList[i]] = boundingBoxList[i]
-        }
-        return bitmapBoxMap
-    }
     // Detection-exclusive image processing functions
     private fun opening(inputBitmap: Bitmap, x: Double, y: Double): Bitmap {
         val inputMat = ImageProcessing().convertBitmapToMat(inputBitmap)
         val outputMat = ImageProcessing().opening(inputMat, x, y)
         return ImageProcessing().convertToBitmap(outputMat)
     }
-    private fun trimBoundingBoxList(inputBoundingBoxList: List<BoundingBox>, bitmapWidth: Int): List<BoundingBox>{
-        val midpoint = bitmapWidth / 2
+    private fun trimBoundingBoxList(inputBoundingBoxList: List<BoundingBox>): List<BoundingBox>{
         val trimmedBoundingBoxList = mutableListOf<BoundingBox>()
+        if (inputBoundingBoxList.isEmpty()) {
+            return trimmedBoundingBoxList
+        }
+        val inputMutableList = mutableListOf<BoundingBox>()
+        // Converting input list into mutable list
+        for (boundingBox in inputBoundingBoxList){
+            inputMutableList.add(boundingBox)
+        }
+        // Sort by horizontal coordinates
+        inputMutableList.sortBy { it.x }
+        val minimumBoundingX = inputMutableList[0].x
+        val minimumBoundingY = inputMutableList[0].y
+        var midBoundingX = inputMutableList[0].y
+        if (inputMutableList.size >= 15) {
+            midBoundingX = inputMutableList[14].x
+        }
         // Iterate through list.
         for (boundingBox in inputBoundingBoxList){
-            // Only add if bounding box's x-coordinate is:
-            // Found within the first 128 pixels from the right.
-            if (boundingBox.x < 128) {
+            // Only add if bounding box's horizontal coordinate is:
+            // Found within +20 pixels of the 3rd horizontal bounding box
+            if (boundingBox.x < minimumBoundingX + 100) {
                 trimmedBoundingBoxList.add(boundingBox)
-            } // Found within 128 pixels before the midpoint.
-            else if ((midpoint - 128) < boundingBox.x && boundingBox.x < midpoint){
+            } // Found above ID number box
+            else if (boundingBox.y < minimumBoundingY) {
+                // Do nothing
+            } // Found within +- 20 pixels of central bounding box group
+            else if (midBoundingX - 10 < boundingBox.x && boundingBox.x < midBoundingX + 10){
                 trimmedBoundingBoxList.add(boundingBox)
             }
         }
@@ -441,32 +391,31 @@ class PaddleDetector {
         trimmedBoundingBoxList.sortBy { it.y }
         // Remove labels by removing bounding boxes after it if the y-coordinate difference is within 30 to 55 pixels.
         // Only iterate bounding boxes whose x-coordinate is within 128 pixels from the midpoint.
-        for (i in 0 until trimmedBoundingBoxList.size){
-            if (i < trimmedBoundingBoxList.size - 1){
-                val currentBox = trimmedBoundingBoxList[i]
-                val nextBox = trimmedBoundingBoxList[i + 1]
-                if ((midpoint - 128) < currentBox.x && currentBox.x < midpoint){
-                    if (nextBox.y - currentBox.y in 30..55){
-                        trimmedBoundingBoxList.removeAt(i)
-                    }
+        var i = 1
+        while (i < trimmedBoundingBoxList.size - 2) {
+            val previousBox = trimmedBoundingBoxList[i-1]
+            val currentBox = trimmedBoundingBoxList[i]
+            val nextBox = trimmedBoundingBoxList[i + 1]
+            if (midBoundingX - 10 < currentBox.x && currentBox.x < midBoundingX + 10){
+                // Remove PII Labels
+                if (currentBox.y - previousBox.y > nextBox.y - currentBox.y){
+                    trimmedBoundingBoxList.remove(currentBox)
                 }
             }
+            i += 1
         }
-        // Compare the last few bounding boxes and remove the one with the least y-coordinate.
-        // Ensure these boxes' x-coordinates are within 128 pixels from right.
-        val maxHeight = 960
-        val lastFewBoxes = trimmedBoundingBoxList.takeLastWhile { it.x < 128 && it.y > maxHeight - 240}
-        if (lastFewBoxes.size > 1){
-            val minYBox = lastFewBoxes.minByOrNull { it.y }
-            trimmedBoundingBoxList.remove(minYBox)
+        i = 4
+        while (i < trimmedBoundingBoxList.size - 1) {
+            val currentBox = trimmedBoundingBoxList[i]
+            val nextBox = trimmedBoundingBoxList[i + 1]
+            if (currentBox.x < minimumBoundingX + 100) {
+                if (currentBox.height * currentBox.width < nextBox.height * nextBox.width) {
+                    trimmedBoundingBoxList.remove(currentBox)
+                    break
+                }
+            }
+            i += 1
         }
-        // Remove the box if x-coordinate is not within 128 pixels from the right.
         return trimmedBoundingBoxList
-    }
-    // Debugging functions
-    private fun debugSaveImage(bitmap: Bitmap, filename: String){
-        val fileOutputStream = FileOutputStream(filename)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
-        fileOutputStream.close()
     }
 }

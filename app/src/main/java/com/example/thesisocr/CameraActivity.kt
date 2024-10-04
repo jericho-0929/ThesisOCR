@@ -2,20 +2,15 @@ package com.example.thesisocr
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.icu.text.SimpleDateFormat
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
-import android.util.Rational
 import android.view.MotionEvent
-import android.view.TextureView
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -23,34 +18,23 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.camera2.Camera2Config
-import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.CameraX
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.FocusMeteringAction
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCapture.CaptureMode
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
-import androidx.camera.core.UseCaseGroup
-import androidx.camera.core.ViewPort
-import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.example.thesisocr.databinding.ActivityCameraBinding
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
-    data class CameraResult (
-        var imageResult: Bitmap
-    )
     // Camera Variables
     private lateinit var viewBinding: ActivityCameraBinding
     private lateinit var cameraExecutor: ExecutorService

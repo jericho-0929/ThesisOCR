@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity() {
             return false
         } else {
             // Display the image and recognition results.
-            displayImage(modelResults.detectionResult.outputBitmap)
+            displayImage(modelResults.preProcessedImage)
             // Check if modelResults.recognitionResult is null.
             displayRecognitionResults(modelResults.recognitionResult)
             // Display inference times to the user.
@@ -216,7 +216,6 @@ class MainActivity : AppCompatActivity() {
     private fun debugSaveImages(cameraUsed: Boolean = false){
         // Grab bitmap contents of modelProcessing.
         val detectionBitmapMask = modelResults.detectionResult.outputMask
-        val detectionBitmap = modelResults.detectionResult.outputBitmap
         val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US)
         val filenameAppendix = dateFormat.format(System.currentTimeMillis())
         // Save the images.
@@ -242,17 +241,17 @@ class MainActivity : AppCompatActivity() {
         } else {
             false
         }
-        val isRecognitionOutputSaved = saveStringListAsJson(modelResults.recognitionResult!!.listOfStrings,
+        saveStringListAsJson(modelResults.recognitionResult!!.listOfStrings,
             "$yeetLocation/recognition_output_$filenameAppendix.json"
         )
-        val isDetectionOutputSaved = saveBoundingBoxCoordinatesAsJson(modelResults.detectionResult.boundingBoxList,
+        saveBoundingBoxCoordinatesAsJson(modelResults.detectionResult.boundingBoxList,
             "$yeetLocation/detection_output_$filenameAppendix.json"
         )
         val combinedMap = createCombinedDictionary(
             modelResults.detectionResult.boundingBoxList,
             modelResults.recognitionResult!!.listOfStrings
         )
-        val isCombinedOutputSaved = appendCombinedListToJson(
+        appendCombinedListToJson(
             filenameAppendix,
             "$yeetLocation/combined_output.json",
             listOf(combinedMap)
@@ -317,28 +316,7 @@ class MainActivity : AppCompatActivity() {
         }
         return true
     }
-    private fun OutputStream.saveStringListAsCSV(context: Context, inputList: List<String>): Boolean {
-        // Write inputList to specified filename.
-        val writer = bufferedWriter()
-        inputList.forEach {
-            writer.write(it)
-            writer.newLine()
-        }
-        writer.flush()
-        writer.close()
-        return true
-    }
-    private fun OutputStream.saveBoundingBoxCoordinatesAsCSV(context: Context, inputList: List<PaddleDetector.BoundingBox>): Boolean {
-        // Each row has following entries: x, y, width, height.
-        val writer = bufferedWriter()
-        inputList.forEach{
-            writer.write("${it.x}, ${it.y}, ${it.width}, ${it.height}")
-            writer.newLine()
-        }
-        writer.flush()
-        writer.close()
-        return true
-    }
+
     // CameraX Functions
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(

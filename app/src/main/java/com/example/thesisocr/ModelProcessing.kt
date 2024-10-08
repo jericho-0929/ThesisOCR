@@ -2,13 +2,10 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.providers.NNAPIFlags
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Environment
 import android.util.Log
-import java.util.EnumSet
 
 class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
@@ -76,10 +73,10 @@ class ModelProcessing(private val resources: Resources) {
         Log.d("Warm-up", "Threads warmed up.")
     }
     private fun ortSessionConfigurations(): OrtSession.SessionOptions {
-        // NOTE: NNAPI only supports models with fixed input dimensions.
+        // NOTE: NNAPI only supports models with fixed input dimensions, it will not work with models that have dynamic input dimensions.
         val sessionOptions = OrtSession.SessionOptions()
         // Set NNAPI flags.
-        //val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_ONLY)
+        // val nnapiFlags = EnumSet.of(NNAPIFlags.CPU_ONLY)
         // Add NNAPI (Pass nnapiFlags as parameter if needed)
         sessionOptions.addNnapi()
         // Execution Mode and Optimization Level
@@ -106,7 +103,7 @@ class ModelProcessing(private val resources: Resources) {
         val modelPackagePath = when (modelNum) {
             // Detection
             1 -> R.raw.det_model
-            // Recognition (Working model is en_v3_synth4_20epoch)
+            // Recognition
             2 -> R.raw.en_v3_synth4_20epoch
             // Default to detection model.
             else -> R.raw.det_model

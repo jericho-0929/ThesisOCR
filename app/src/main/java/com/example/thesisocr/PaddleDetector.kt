@@ -38,6 +38,7 @@ import kotlin.time.measureTime
  *
  * NOTE: Input Width and Height should be a multiple of 32.
  */
+
 class PaddleDetector {
     data class Result(
         var outputMask: Bitmap,

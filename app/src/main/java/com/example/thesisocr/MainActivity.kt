@@ -2,7 +2,6 @@ package com.example.thesisocr
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -22,18 +21,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.ImageCapture
 import androidx.core.content.ContextCompat
 import com.example.thesisocr.databinding.ActivityCameraBinding
+import com.google.gson.Gson
 import org.opencv.android.OpenCVLoader
+import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStream
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import com.google.gson.Gson
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
-    // Model Vocabulary from en_dict.txt raw resource file.
-    private lateinit var modelVocab: List<String>
     // ONNX Variables
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession

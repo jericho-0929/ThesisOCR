@@ -19,12 +19,9 @@ import kotlin.time.measureTime
  * PaddleRecognition class for processing images using the PaddleOCR text recognition model.
  * Tensor input shape: (Batch Size, 3, Width, Height)
  * Tensor output shape: (Batch Indices, Sequence Length, Model's Vocabulary)
- * Model's Vocabulary: 97 classes
- * 26 uppercase + 26 lowercase + 10 digits + 33 special + 1 space + 1 CTC loss = 97 classes
- * Refer to the en_dict.txt file found in this project's raw folder.
+ * Model's Vocabulary is the selected _dict.txt file found in ModelProcessing.kt.
  */
 
-// TODO: IMPLEMENT COROUTINE FOR MODEL INFERENCE.
 class PaddleRecognition {
     data class TextResult(
         var listOfStrings: MutableList<String>,

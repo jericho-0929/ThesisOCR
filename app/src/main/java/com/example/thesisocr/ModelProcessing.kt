@@ -104,7 +104,7 @@ class ModelProcessing(private val resources: Resources) {
             // Detection
             1 -> R.raw.det_model
             // Recognition
-            2 -> R.raw.en_v3_synth4_20epoch
+            2 -> R.raw.en_v3_synth2_20epoch
             // Default to detection model.
             else -> R.raw.det_model
         }

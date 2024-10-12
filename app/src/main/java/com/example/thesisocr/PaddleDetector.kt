@@ -369,20 +369,18 @@ class PaddleDetector {
         // Sort by horizontal coordinates
         inputMutableList.sortBy { it.x }
         val minimumBoundingX = inputMutableList[0].x
-        val minimumBoundingY = inputMutableList[0].y
         var midBoundingX = inputMutableList[0].y
-        if (inputMutableList.size >= 15) {
-            midBoundingX = inputMutableList[14].x
+        if (inputMutableList.size > 10) {
+            midBoundingX = inputMutableList[10].x
+        } else {
+            return trimmedBoundingBoxList
         }
         // Iterate through list.
-        for (boundingBox in inputBoundingBoxList){
+        for (boundingBox in inputMutableList){
             // Only add if bounding box's horizontal coordinate is:
             // Found within +20 pixels of the 3rd horizontal bounding box
-            if (boundingBox.x < minimumBoundingX + 100) {
+            if (boundingBox.x < minimumBoundingX + 75) {
                 trimmedBoundingBoxList.add(boundingBox)
-            } // Found above ID number box
-            else if (boundingBox.y < minimumBoundingY) {
-                // Do nothing
             } // Found within +- 20 pixels of central bounding box group
             else if (midBoundingX - 10 < boundingBox.x && boundingBox.x < midBoundingX + 10){
                 trimmedBoundingBoxList.add(boundingBox)
@@ -401,6 +399,8 @@ class PaddleDetector {
                 // Remove PII Labels
                 if (currentBox.y - previousBox.y > nextBox.y - currentBox.y){
                     trimmedBoundingBoxList.remove(currentBox)
+                } else if (currentBox.width > previousBox.width && currentBox.width > nextBox.width) {
+                    trimmedBoundingBoxList.remove(currentBox)
                 }
             }
             i += 1
@@ -409,7 +409,7 @@ class PaddleDetector {
         while (i < trimmedBoundingBoxList.size - 1) {
             val currentBox = trimmedBoundingBoxList[i]
             val nextBox = trimmedBoundingBoxList[i + 1]
-            if (currentBox.x < minimumBoundingX + 100) {
+            if (currentBox.x < minimumBoundingX + 75) {
                 if (currentBox.height * currentBox.width < nextBox.height * nextBox.width) {
                     trimmedBoundingBoxList.remove(currentBox)
                     break

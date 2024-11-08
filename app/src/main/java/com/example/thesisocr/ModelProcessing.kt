@@ -11,8 +11,8 @@ class ModelProcessing(private val resources: Resources) {
     private var modelVocab = loadDictionary()
     private var ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private lateinit var ortSession: OrtSession
-    private val resizeWidth = 1280
-    private val resizeHeight = 960
+    private var resizeWidth = 1280
+    private var resizeHeight = 960
 
     data class ModelResults(
         var detectionResult: PaddleDetector.Result,
@@ -20,7 +20,18 @@ class ModelProcessing(private val resources: Resources) {
         var recogInputBitmapList: MutableList<Bitmap>,
         var preProcessedImage: Bitmap
     )
-    fun processImage(inputBitmap: Bitmap, detectionParallel: Boolean = true): ModelResults {
+    fun processImage(inputBitmap: Bitmap, idToProcess: Int = 0): ModelResults {
+        // Resize dimensions for the input bitmap based on idToProcess.
+        when (idToProcess){
+            0 -> {
+                resizeWidth = 1280
+                resizeHeight = 960
+            }
+            1 -> {
+                resizeWidth = 960
+                resizeHeight = 1280
+            }
+        }
         // Resize the input bitmap.
         val resizedBitmap = ImageProcessing().rescaleBitmap(
             inputBitmap
@@ -28,7 +39,7 @@ class ModelProcessing(private val resources: Resources) {
         ortSession = ortEnv.createSession(selectModel(1), ortSessionConfigurations())
         // Run detection on the resized bitmap.
         val detectionResult = PaddleDetector().detect(
-            resizedBitmap, ortEnv, ortSession, detectionParallel
+            resizedBitmap, ortEnv, ortSession, idToProcess
         )
         // Cancel entire process if bounding box list is less than 12 and more than 13.
         if (detectionResult.boundingBoxList.size < 6 || detectionResult.boundingBoxList.size > 25){
@@ -58,7 +69,7 @@ class ModelProcessing(private val resources: Resources) {
             val warmupDetection = PaddleDetector().detect(
                 //ImageProcessing().processImageForDetection(warmupBitmap)
                 warmupBitmap
-                , ortEnv, ortSession, false)
+                , ortEnv, ortSession, 0)
             ortSession.close()
             // Run recognition on warm-up bitmap.
             if (warmupDetection.boundingBoxList.isNotEmpty()){

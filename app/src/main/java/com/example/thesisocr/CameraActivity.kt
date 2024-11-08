@@ -45,14 +45,26 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
     private var textView: TextView? = null
     private var previewView: PreviewView? = null
 
-    @SuppressLint("ClickableViewAccessibility")
+    // Values from the previous activity.
+    private var idToProcess: Int = 0
+
+    @SuppressLint("ClickableViewAccessibility", "SourceLockedOrientationActivity")
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewBinding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(viewBinding.root)
+
+        // Get the values from the previous activity.
+        idToProcess = intent.getIntExtra("idToProcess", 0)
+
         // Lock the screen orientation to landscape.
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = if (idToProcess == 0) {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         startCamera()
 

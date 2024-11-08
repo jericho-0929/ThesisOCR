@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modelProcessing: ModelProcessing
     private lateinit var modelResults: ModelProcessing.ModelResults
 
-    private var parallelDetection = false
+    private var idTypeToProcess = 0
     private var runCount = 0
     private var cameraUsed = false
     private lateinit var cameraInputBitmap: Bitmap
@@ -93,28 +93,38 @@ class MainActivity : AppCompatActivity() {
         }
         // Call Camera Button
         btnCallCamera.setOnClickListener {
-            startCameraActivity.launch(Intent(this, CameraActivity::class.java))
+            startCameraActivity.launch(
+                Intent(this, CameraActivity::class.java)
+                .putExtra("idToProcess", idTypeToProcess)
+            )
         }
         // Debug Save Button
         btnDebugSave.setOnClickListener {
             debugSaveImages(cameraUsed)
         }
-        // Process Mode Button
+        // Process ID Mode Button
         btnDebugProcess.setOnClickListener {
-            // Toggle parallel detection.
-            parallelDetection = !parallelDetection
-            if (parallelDetection){
-                Toast.makeText(baseContext,
-                    "Parallel Detection: ON",
-                    Toast.LENGTH_SHORT).show()
-                btnDebugProcess.text = getString(R.string.debug_parallel)
-            } else {
-                Toast.makeText(baseContext,
-                    "Parallel Detection: OFF",
-                    Toast.LENGTH_SHORT).show()
-                btnDebugProcess.text = getString(R.string.debug_serial)
+            // Toggle between 0 and 1.
+            idTypeToProcess = if (idTypeToProcess == 0) 1 else 0
+            when (idTypeToProcess) {
+                0 -> {
+                    Toast.makeText(
+                        baseContext,
+                        "Input changed to PhilSys ID.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    btnDebugProcess.setText(R.string.debug_philsys)
+                }
+                1 -> {
+                    Toast.makeText(
+                        baseContext,
+                        "Input changed to DLSU ID.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    btnDebugProcess.setText(R.string.debug_dlsu)
+                }
             }
-            Log.d("Parallel Detection", "Status: $parallelDetection")
+            Log.d("Parallel Detection", "Status: $idTypeToProcess")
         }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -125,7 +135,7 @@ class MainActivity : AppCompatActivity() {
         if (uri != null){
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
             // Process the image.
-            processBitmap(bitmap, parallelDetection)
+            processBitmap(bitmap, idTypeToProcess)
         } else {
             Log.d("Photo Picker", "No photo selected.")
         }
@@ -152,13 +162,13 @@ class MainActivity : AppCompatActivity() {
             // Process the image.
             cameraUsed = true
             cameraInputBitmap = bitmap
-            processBitmap(bitmap, parallelDetection)
+            processBitmap(bitmap, idTypeToProcess)
         }
     }
     // Functions
-    private fun processBitmap(bitmap: Bitmap, parallelDetection: Boolean = true): Boolean {
+    private fun processBitmap(bitmap: Bitmap, idToProcess: Int = 0): Boolean {
         // Process the image.
-        modelResults = modelProcessing.processImage(bitmap, parallelDetection)
+        modelResults = modelProcessing.processImage(bitmap, idToProcess)
         // Check if recognition result is null.
         if (modelResults.recognitionResult == null){
             Toast.makeText(baseContext,

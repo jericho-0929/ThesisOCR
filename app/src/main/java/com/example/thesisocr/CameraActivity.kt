@@ -58,7 +58,7 @@ class CameraActivity: AppCompatActivity(), CameraXConfig.Provider{
         // Get the values from the previous activity.
         idToProcess = intent.getIntExtra("idToProcess", 0)
 
-        // Lock the screen orientation to landscape.
+        // Lock the screen orientation depending on the idToProcess value.
         requestedOrientation = if (idToProcess == 0) {
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }

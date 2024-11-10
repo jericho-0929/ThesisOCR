@@ -33,12 +33,21 @@ class ImageProcessing {
         )
     }
     // Recognition pre-processing functions.
-    fun processImageForRecognition(inputBitmap: Bitmap): Bitmap {
-        val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))
-        // Blur twice.
-        val blurredMat = imageBlur(thresholdMat)
-        val openedMat = opening(blurredMat, 3.0, 3.0)
-        return convertToBitmap(imageBlur(openedMat))
+    fun processImageForRecognition(inputBitmap: Bitmap, idToProcess: Int = 0): Bitmap {
+        val returnMat = when (idToProcess){
+            1 -> {
+                val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap), 15, -8.0)
+                val blurredMat = imageBlur(thresholdMat)
+                val openedMat = opening(blurredMat, 3.0, 3.0)
+                closing(openedMat, 5.0,5.0)
+            }
+            else -> {
+                val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))
+                val blurredMat = imageBlur(thresholdMat)
+                opening(blurredMat, 3.0, 3.0)
+            }
+        }
+        return convertToBitmap(returnMat)
     }
     private fun convertToGrayscaleMat(inputBitmap: Bitmap): Mat {
         val inputMat = Mat()
@@ -52,9 +61,9 @@ class ImageProcessing {
         Imgproc.bilateralFilter(inputMat, blurredMat, 5, 75.0, 75.0)
         return blurredMat
     }
-    private fun imageThresholding(inputMat: Mat): Mat {
+    private fun imageThresholding(inputMat: Mat, blockSize: Int = 95, C: Double = 47.0): Mat {
         val thresholdMat = Mat()
-        Imgproc.adaptiveThreshold(inputMat, thresholdMat, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 95, 47.0)
+        Imgproc.adaptiveThreshold(inputMat, thresholdMat, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, blockSize, C)
         return thresholdMat
     }
     private fun dilation(inputMat: Mat, x: Double, y: Double): Mat {
@@ -68,6 +77,12 @@ class ImageProcessing {
         val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(x,y))
         Imgproc.morphologyEx(inputMat, openedMat, Imgproc.MORPH_OPEN, kernel)
         return openedMat
+    }
+    fun closing(inputMat: Mat, x: Double, y: Double): Mat {
+        val closedMat = Mat()
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(x,y))
+        Imgproc.morphologyEx(inputMat, closedMat, Imgproc.MORPH_CLOSE, kernel)
+        return closedMat
     }
     fun convertToBitmap(inputMat: Mat): Bitmap {
         val outputBitmap = Bitmap.createBitmap(inputMat.width(), inputMat.height(), Bitmap.Config.ARGB_8888)

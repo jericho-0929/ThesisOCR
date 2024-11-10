@@ -124,7 +124,6 @@ class MainActivity : AppCompatActivity() {
                     btnDebugProcess.setText(R.string.debug_dlsu)
                 }
             }
-            Log.d("Parallel Detection", "Status: $idTypeToProcess")
         }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -162,7 +161,13 @@ class MainActivity : AppCompatActivity() {
             // Process the image.
             cameraUsed = true
             cameraInputBitmap = bitmap
-            processBitmap(bitmap, idTypeToProcess)
+            when(idTypeToProcess){
+                1 -> {
+                    val rotatedBitmap = rotateBitmap(bitmap, 90)
+                    processBitmap(rotatedBitmap, idTypeToProcess)
+                }
+                0 -> processBitmap(bitmap, idTypeToProcess)
+            }
         }
     }
     // Functions
@@ -327,6 +332,11 @@ class MainActivity : AppCompatActivity() {
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(
             baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+    private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
+        val matrix = android.graphics.Matrix()
+        matrix.postRotate(rotationDegrees.toFloat())
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
     private fun requestPermissions() {
         requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)

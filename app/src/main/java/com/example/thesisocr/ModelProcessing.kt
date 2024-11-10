@@ -13,6 +13,7 @@ class ModelProcessing(private val resources: Resources) {
     private lateinit var ortSession: OrtSession
     private var resizeWidth = 1280
     private var resizeHeight = 960
+    private var idToProcess = 0
 
     data class ModelResults(
         var detectionResult: PaddleDetector.Result,
@@ -21,8 +22,10 @@ class ModelProcessing(private val resources: Resources) {
         var preProcessedImage: Bitmap
     )
     fun processImage(inputBitmap: Bitmap, idToProcess: Int = 0): ModelResults {
+        // Set class' idToProcess to the parameter idToProcess.
+        this.idToProcess = idToProcess
         // Resize dimensions for the input bitmap based on idToProcess.
-        when (idToProcess){
+        when (this.idToProcess){
             0 -> {
                 resizeWidth = 1280
                 resizeHeight = 960
@@ -106,7 +109,7 @@ class ModelProcessing(private val resources: Resources) {
         val croppedBitmapList = PaddleDetector().cropBitmapToBoundingBoxes(inputBitmap, detectionResult.boundingBoxList)
         val preProcessedList = mutableListOf<Bitmap>()
         for (element in croppedBitmapList){
-            preProcessedList.add(ImageProcessing().processImageForRecognition(element))
+            preProcessedList.add(ImageProcessing().processImageForRecognition(element, idToProcess))
         }
         return preProcessedList
     }

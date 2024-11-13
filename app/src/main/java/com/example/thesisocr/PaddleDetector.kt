@@ -78,24 +78,13 @@ class PaddleDetector {
             )
         )
         // Generate bounding boxes from the outputBitmap.
-        var boundingBoxList: List<BoundingBox> = emptyList()
-        // TODO: Implement filtering depending for idToProcess == 1.
-        boundingBoxList = if (idToProcess == 1) {
-            // Temporary implementation for idToProcess == 1.
-            // Skip filtering for now.
-            createBoundingBoxes(
-                convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)),
-                resizedOutputBitmap
-            )
-        } else {
-            filterBoundingBoxList(
+        val boundingBoxList = filterBoundingBoxList(
                 createBoundingBoxes(
                     convertImageToFloatArray(convertToMonochrome(resizedOutputBitmap)),
                     resizedOutputBitmap
                 ),
                 idToProcess
             )
-        }
         // Render bounding boxes on the inputBitmap.
         val renderedBitmap = renderBoundingBoxes(resizedBitmap, boundingBoxList)
         return Result(outputBitmap, renderedBitmap, boundingBoxList, inferenceTime)
@@ -302,14 +291,38 @@ class PaddleDetector {
     }
     // Filter bounding box list.
     private fun filterBoundingBoxList(inputBoundingBoxList: List<BoundingBox>, idToProcess: Int): List<BoundingBox>{
-        // TODO: Implement filtering depending on idToProcess value.
-        val trimmedBoundingBoxList = mutableListOf<BoundingBox>()
-        if (inputBoundingBoxList.isEmpty()) {
-            return trimmedBoundingBoxList
+        return when (idToProcess){
+            0 -> filterForPhilSysID(inputBoundingBoxList)
+            1 -> filterForDLSU(inputBoundingBoxList)
+            else -> inputBoundingBoxList
         }
+    }
+    private fun filterForDLSU(inputBoundingBoxList: List<BoundingBox>): List<BoundingBox> {
+        // Filter bounding box lost for De La Salle University ID.
+        val trimmedBoundingBoxList = mutableListOf<BoundingBox>()
         val inputMutableList = mutableListOf<BoundingBox>()
         // Converting input list into mutable list
-        for (boundingBox in inputBoundingBoxList){
+        for (boundingBox in inputBoundingBoxList) {
+            inputMutableList.add(boundingBox)
+        }
+        // Only get bounding boxes past the 1/4th of the image.
+        inputMutableList.sortBy { it.y }
+        val midBoundingX = inputMutableList[inputMutableList.size / 4].x
+        val midBoundingY = inputMutableList[inputMutableList.size / 2].y
+        for (boundingBox in inputMutableList) {
+            if (boundingBox.x > midBoundingX && boundingBox.y > midBoundingY) {
+                trimmedBoundingBoxList.add(boundingBox)
+            }
+        }
+        return trimmedBoundingBoxList
+    }
+    private fun filterForPhilSysID(inputBoundingBoxList: List<BoundingBox>): List<BoundingBox> {
+        // Filter bounding box list for Philippine Identification System ID.
+        val trimmedBoundingBoxList = mutableListOf<BoundingBox>()
+        val inputMutableList = mutableListOf<BoundingBox>()
+
+        // Converting input list into mutable list
+        for (boundingBox in inputBoundingBoxList) {
             inputMutableList.add(boundingBox)
         }
         // Sort by horizontal coordinates
@@ -322,13 +335,13 @@ class PaddleDetector {
             return trimmedBoundingBoxList
         }
         // Iterate through list.
-        for (boundingBox in inputMutableList){
+        for (boundingBox in inputMutableList) {
             // Only add if bounding box's horizontal coordinate is:
             // Found within +20 pixels of the 3rd horizontal bounding box
             if (boundingBox.x < minimumBoundingX + 75) {
                 trimmedBoundingBoxList.add(boundingBox)
             } // Found within +- 20 pixels of central bounding box group
-            else if (midBoundingX - 10 < boundingBox.x && boundingBox.x < midBoundingX + 10){
+            else if (midBoundingX - 10 < boundingBox.x && boundingBox.x < midBoundingX + 10) {
                 trimmedBoundingBoxList.add(boundingBox)
             }
         }
@@ -338,12 +351,12 @@ class PaddleDetector {
         // Only iterate bounding boxes whose x-coordinate is within 128 pixels from the midpoint.
         var i = 1
         while (i < trimmedBoundingBoxList.size - 2) {
-            val previousBox = trimmedBoundingBoxList[i-1]
+            val previousBox = trimmedBoundingBoxList[i - 1]
             val currentBox = trimmedBoundingBoxList[i]
             val nextBox = trimmedBoundingBoxList[i + 1]
-            if (midBoundingX - 10 < currentBox.x && currentBox.x < midBoundingX + 10){
+            if (midBoundingX - 10 < currentBox.x && currentBox.x < midBoundingX + 10) {
                 // Remove PII Labels
-                if (currentBox.y - previousBox.y > nextBox.y - currentBox.y){
+                if (currentBox.y - previousBox.y > nextBox.y - currentBox.y) {
                     trimmedBoundingBoxList.remove(currentBox)
                 } else if (currentBox.width > previousBox.width && currentBox.width > nextBox.width) {
                     trimmedBoundingBoxList.remove(currentBox)

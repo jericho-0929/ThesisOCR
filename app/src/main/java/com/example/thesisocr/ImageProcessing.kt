@@ -38,8 +38,8 @@ class ImageProcessing {
             1 -> {
                 val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap), 15, -8.0)
                 val blurredMat = imageBlur(thresholdMat)
-                val openedMat = opening(blurredMat, 3.0, 3.0)
-                closing(openedMat, 5.0,5.0)
+                val closedMat = closing(blurredMat, 5.0,5.0)
+                opening(closedMat, 2.0, 2.0)
             }
             else -> {
                 val thresholdMat = imageThresholding(convertToGrayscaleMat(inputBitmap))

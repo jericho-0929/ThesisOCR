@@ -182,6 +182,7 @@ class MainActivity : AppCompatActivity() {
             textView = findViewById(R.id.textView)
             textView.visibility = View.VISIBLE
             textView.text = "Image not good. Please try again."
+            deleteCacheFiles()
             return false
         } else {
             // Display the image and recognition results.
@@ -194,6 +195,7 @@ class MainActivity : AppCompatActivity() {
                 modelResults.recognitionResult!!.inferenceTime.inWholeMilliseconds
             )
             runCount++
+            deleteCacheFiles()
             return true
         }
     }
@@ -327,7 +329,18 @@ class MainActivity : AppCompatActivity() {
         }
         return true
     }
-
+    private fun deleteCacheFiles(){
+        // All contents from externalCacheDir will be deleted.
+        val cacheDir = externalCacheDir
+        if (cacheDir != null){
+            val cacheFiles = cacheDir.listFiles()
+            if (cacheFiles != null){
+                for (file in cacheFiles){
+                    file.delete()
+                }
+            }
+        }
+    }
     // CameraX Functions
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(
@@ -348,6 +361,7 @@ class MainActivity : AppCompatActivity() {
         }
         ortEnv.close()
         cameraExecutor.shutdown()
+        deleteCacheFiles()
     }
     companion object {
         const val TAG = "CameraXApp"
